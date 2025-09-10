@@ -52,38 +52,6 @@ const Product = () => {
     fetchProductData();
   }, [productId, products])
 
-  // Convert image to RGB format using Canvas
-  const convertToRGB = (file) => {
-    return new Promise((resolve, reject) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-
-        // Fill with white background first to remove alpha channel
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw image on top
-        ctx.drawImage(img, 0, 0);
-
-        // Convert to JPEG blob (RGB format)
-        canvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to convert image to RGB'));
-          }
-        }, 'image/jpeg', 0.95);
-      };
-
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
-    });
-  };
 
   // Handle user image selection
   const handleUserImageChange = async (e) => {
@@ -102,20 +70,9 @@ const Product = () => {
       return;
     }
 
-    try {
-      // Convert to RGB format
-      const rgbBlob = await convertToRGB(file);
-      setUserImage(rgbBlob);
-
-      // Create preview
-      const previewUrl = URL.createObjectURL(rgbBlob);
-      setUserImagePreview(previewUrl);
-
-      toast.success('Ảnh đã được chuyển đổi sang định dạng RGB');
-    } catch (error) {
-      console.error('Error converting image:', error);
-      toast.error('Lỗi khi xử lý ảnh: ' + error.message);
-    }
+    setUserImage(file);
+    const previewUrl = URL.createObjectURL(file);
+    setUserImagePreview(previewUrl);
   };
 
   // Handle try-on process
@@ -137,6 +94,11 @@ const Product = () => {
         autoClose: false,
         hideProgressBar: false
       });
+
+
+      // Tải ảnh sản phẩm từ URL và chuyển thành Blob
+      const productImageResponse = await fetch(productData.image[0]);
+      const productImageBlob = await productImageResponse.blob();
 
       const formData = new FormData();
       formData.append('people', userImage, 'user-image.jpg');
@@ -393,8 +355,8 @@ const Product = () => {
                   onClick={handleTryOn}
                   disabled={!userImage || isLoading}
                   className={`px-8 py-3 rounded text-white font-medium ${!userImage || isLoading
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-black hover:bg-gray-700'
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-black hover:bg-gray-700'
                     }`}
                 >
                   {isLoading ? 'Đang xử lý...' : 'Thử đồ'}

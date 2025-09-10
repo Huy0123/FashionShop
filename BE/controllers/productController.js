@@ -2,7 +2,7 @@ import { v2 as cloudinary } from 'cloudinary'
 import productModel from "../models/productModel.js"
 import { Client, handle_file } from "@gradio/client"
 import sharp from 'sharp'
-
+import fs from 'fs/promises'
 //thêm sản phẩm
 const addProduct = async (req, res) => {
     try {
@@ -88,57 +88,38 @@ const tryOnClothes = async (req, res) => {
         const person = req.files.people && req.files.people[0];
         const cloth = req.files.clothes && req.files.clothes[0];
 
-        if (!person || !cloth) {
-            return res.json({
-                success: false,
-                message: "Cần cung cấp cả ảnh người và ảnh quần áo"
-            });
-        }
+        if (!person) return res.json({ success: false, message: 'Cần cung cấp ảnh người' });
+        if (!cloth) return res.json({ success: false, message: 'Cần cung cấp ảnh quần áo' });
 
-        // Chuyển ảnh sang định dạng JPEG RGB
-        const personBuffer = await toJpegRGB(person.path, 512);
-        const clothBuffer = await toJpegRGB(cloth.path, 512);
+        const personBuffer = await toPngRgbBuffer(person.path, 512);
+        const clothBuffer = await toPngRgbBuffer(cloth.path, 512);
 
-        // Kết nối HuggingFace Gradio API
-        const client = await Client.connect("shahza1b/CatVTON", {
-            hf_token: process.env.HF_TOKEN
-        });
+        const app = await Client.connect("yisol/IDM-VTON", { hf_token: process.env.HUGGINGFACE_TOKEN });
 
-        const result = await client.predict("/submit_function", {
-            person_image: {
-                background: handle_file(personBuffer, "image/jpeg"),
-                layers: [],
-                composite: null
-            },
-            cloth_image: handle_file(clothBuffer, "image/jpeg"),
-            cloth_type: "upper",
-            num_inference_steps: 50,
-            guidance_scale: 2.5,
-            seed: 42,
-            show_type: "result only",
-        });
+        const result = await app.predict("/tryon", [
+            { background: personBuffer, layers: [], composite: null },
+            clothBuffer, 
+            "Hello!!",
+            true,
+            true, 
+            20, 
+            1 
+        ]);
 
-        // Trả về JSON chuẩn
-        res.json({
-            success: true,
-            message: "Try-on thành công!",
-            imageUrl: result.data[0].url   // gửi link ảnh về FE
-        });
-
+        return res.json({ success: true, data: result.data[0].url });
     } catch (error) {
-        console.error("❌ Try-on error:", error);
-        res.json({
-            success: false,
-            message: "Có lỗi xảy ra: " + error.message
-        });
+        console.error(error);
+        return res.status(500).json({ success: false, message: error?.message || 'Server error' });
     }
 };
 
-async function toJpegRGB(
-    buffer,
+async function toPngRgbBuffer(
+    filePath,
     target = 1024,
     bg = { r: 255, g: 255, b: 255 }
 ) {
+    // Đọc file từ path
+    const buffer = await fs.readFile(filePath);
     const img = sharp(buffer);
     const meta = await img.metadata();
 
@@ -152,12 +133,13 @@ async function toJpegRGB(
         pipe = pipe.ensureAlpha().removeAlpha(); // ép đủ 3 channel RGB
     }
 
-    // Resize về kích thước chuẩn (thường 512 hoặc 768 cho Catvton)
+    // Resize và convert sang PNG RGB
     const out = await pipe
         .resize({ width: target, height: target, fit: "inside" })
-        .jpeg({ quality: 92, mozjpeg: true })
+        .png({ quality: 92 })
         .toBuffer();
 
     return out;
 }
-export { addProduct, listProducts, removeProduct, singleProduct, tryOnClothes, toJpegRGB }
+
+export { addProduct, listProducts, removeProduct, singleProduct, tryOnClothes, toPngRgbBuffer }
