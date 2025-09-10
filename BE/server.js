@@ -10,9 +10,7 @@ import productRouter from './routes/productRoute.js'
 import cartRouter from './routes/cartRoute.js'
 import orderRouter from './routes/orderRoute.js'
 import chatRouter from './routes/chatRoute.js'
-import learningRouter from './routes/learningRoute.js'
 import { initializeChatHandlers } from './chat/chatHandler.js'
-import tryonRouter from './routes/tryonRoute.js'
 //config
 const app = express()
 const server = createServer(app)
@@ -34,7 +32,6 @@ app.use('/api/product', productRouter)
 app.use('/api/cart', cartRouter)
 app.use('/api/order', orderRouter)
 app.use('/api/chat', chatRouter)
-app.use('/api/learning', learningRouter)
 
 app.get('/', (req, res) => {
    res.send("good api")

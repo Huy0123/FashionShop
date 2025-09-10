@@ -67,12 +67,23 @@ const ChatWidget = () => {
             return text.replace(/@ai/gi, '<span class="bg-purple-100 text-purple-700 px-1 rounded font-semibold">@ai</span>');
         };
 
+        // Helper function to convert Markdown links to clickable HTML links
+        const convertMarkdownLinks = (text) => {
+            // Convert [**text**](/url) to <a href="/url"><strong>text</strong></a>
+            // This handles both [**XEM SẢN PHẨM**](/product/123) and [text](/url) formats
+            return text.replace(/\[\*\*(.*?)\*\*\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer transition-colors"><strong>$1</strong></a>')
+                      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer transition-colors">$1</a>');
+        };
+
+        // Process text: highlight @ai tags first, then convert markdown links
+        const processedText = convertMarkdownLinks(highlightAiTags(text));
+
         return (
             <div>
-                {/* Render text content with highlighted @ai tags */}
+                {/* Render text content with highlighted @ai tags and clickable links */}
                 <span
                     className="whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ __html: highlightAiTags(text) }}
+                    dangerouslySetInnerHTML={{ __html: processedText }}
                 />
 
                 {/* Render separate image if AI sent one */}

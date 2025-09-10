@@ -22,101 +22,148 @@ try {
 }
 
 /**
- * Tìm sản phẩm đơn giản cho Gemini với productType structure - FIXED
+ * DYNAMIC PRODUCT SEARCH FOR GEMINI AI
+ * Tìm kiếm sản phẩm thông minh dựa trên toàn bộ database
+ * Không giới hạn cứng số lượng, luôn cập nhật theo dữ liệu thật
  */
 async function findProductsForGemini(message) {
    try {
-      const lowerMessage = message.toLowerCase();
+      console.log(`🔍 Dynamic product search for: "${message}"`);
+      
+      const searchQuery = message.toLowerCase();
+      let products = [];
       let query = {};
-      
-      // Check if user is asking about a specific product by name OR selecting a product
-      const isSpecificProductQuery = (lowerMessage.length > 20 && 
-                                    /(áo\s*thun.*|hoodie.*|sweater.*|quần.*)\s+\w+/i.test(message)) ||
-                                    /(đi|nha|vậy|ok|được|chọn|lấy)\s*$/i.test(message.trim());
-      
-      if (isSpecificProductQuery) {
-         // Search by partial name match for specific products
-         const cleanMessage = lowerMessage.replace(/(đi|nha|vậy|ok|được|chọn|lấy)\s*$/i, '').trim();
-         const keywords = cleanMessage.split(' ').filter(word => word.length > 2);
-         if (keywords.length >= 2) {
-            const searchPattern = keywords.slice(0, 6).join('.*'); // Take more keywords for better match
-            query.name = { $regex: searchPattern, $options: 'i' };
-            console.log(`🔍 Searching by name pattern: "${searchPattern}"`);
+
+      // 1. SPECIFIC PRODUCT NAME SEARCH - Tìm theo tên chính xác
+      if (searchQuery.includes('áo') || searchQuery.includes('shirt') || searchQuery.includes('quần') || searchQuery.includes('pants')) {
+         // Extract product keywords from message (remove stopwords)
+         const keywords = searchQuery
+            .replace(/[^\w\sÀ-ỹ]/g, ' ')
+            .split(/\s+/)
+            .filter(word => word.length > 1 && !['cho', 'tôi', 'xem', 'mình', 'một', 'của', 'với', 'và', 'có', 'là', 'này', 'đó'].includes(word));
+         
+         if (keywords.length > 0) {
+            const namePattern = keywords.join('|');
+            query.name = { $regex: namePattern, $options: 'i' };
+            
+            products = await Product.find(query)
+               .sort({ bestseller: -1, date: -1 })
+               .limit(20); // Increased limit for better coverage
+            
+            console.log(`🎯 Name search found ${products.length} products with pattern: ${namePattern}`);
          }
-      } else {
-         // Use productType detection for general queries - IMPROVED LOGIC
-         const productTypeMap = [
-            { key: 'Hoodie', regex: /(hoodie|hodie|hoody|áo\s*khoác|áo\s*có\s*mũ|khoác)/i },
-            { key: 'Sweater', regex: /(sweater|swetter|áo\s*len|áo\s*ấm|len)/i },
-            { key: 'T-shirt', regex: /(áo\s*thun(?!\s*(relaxed|ringer))|t-shirt|tshirt|t\s*shirt|áo\s*tee)/i },
-            { key: 'RelaxedFit', regex: /(relaxed\s*fit|áo thun relaxed fit|relaxed)/i },
-            { key: 'Ringer', regex: /(ringer|áo thun ringer|viền)/i },
-            { key: 'Jogger', regex: /(jogger|jooger|quần\s*thể\s*thao|quần\s*dài|quần\s*ống\s*suông|quần(?!\s*(short|sort)))/i }
-         ];
+      }
 
-         // PRIORITY: Detect áo vs quần first
-         const isShirtQuery = /(áo(?!\s*khoác)|shirt|tshirt|t-shirt|hoodie|sweater|ringer|relaxed)/i.test(lowerMessage);
-         const isPantsQuery = /(quần|pants|jogger|jean)/i.test(lowerMessage);
+      // 2. PRODUCT TYPE SEARCH - Tìm theo loại sản phẩm  
+      if (products.length === 0) {
+         // Get all unique product types dynamically from database
+         const productTypes = await Product.distinct('productType');
+         console.log(`� Available product types: ${productTypes.join(', ')}`);
+         
+         // Map user queries to product types
+         const typeMapping = {
+            'áo': productTypes.filter(type => !type.toLowerCase().includes('jogger')),
+            'shirt': productTypes.filter(type => !type.toLowerCase().includes('jogger')),
+            'quần': productTypes.filter(type => type.toLowerCase().includes('jogger')),
+            'pants': productTypes.filter(type => type.toLowerCase().includes('jogger')),
+            'hoodie': productTypes.filter(type => type.toLowerCase().includes('hoodie')),
+            'sweater': productTypes.filter(type => type.toLowerCase().includes('sweater')),
+            'jogger': productTypes.filter(type => type.toLowerCase().includes('jogger'))
+         };
 
-         if (isShirtQuery && !isPantsQuery) {
-            // Find shirts/tops only
-            const shirtTypes = ['T-shirt', 'RelaxedFit', 'Ringer', 'Hoodie', 'Sweater'];
-            for (const { key, regex } of productTypeMap) {
-               if (shirtTypes.includes(key) && regex.test(lowerMessage)) {
-                  query.productType = key;
-                  console.log(`🎯 Detected shirt type: ${key} from message: "${message}"`);
-                  break;
-               }
-            }
-            // If no specific shirt type, get all shirts
-            if (!query.productType) {
-               query.productType = { $in: shirtTypes };
-               console.log(`👕 Getting all shirts for query: "${message}"`);
-            }
-         } else if (isPantsQuery && !isShirtQuery) {
-            // Find pants only
-            query.productType = 'Jogger';
-            console.log(`👖 Detected pants type: Jogger from message: "${message}"`);
-         } else {
-            // General search - use specific detection
-            for (const { key, regex } of productTypeMap) {
-               if (regex.test(lowerMessage)) {
-                  query.productType = key;
-                  console.log(`🎯 Detected productType: ${key} from message: "${message}"`);
-                  break;
-               }
+         for (const [keyword, types] of Object.entries(typeMapping)) {
+            if (searchQuery.includes(keyword) && types.length > 0) {
+               query = { productType: { $in: types } };
+               products = await Product.find(query)
+                  .sort({ bestseller: -1, date: -1 })
+                  .limit(15);
+               console.log(`🏷️ Type search found ${products.length} products for types: ${types.join(', ')}`);
+               break;
             }
          }
       }
 
-      console.log('🔍 Gemini Query:', query);
+      // 3. SET/OUTFIT SEARCH - Tìm kiếm cho outfit/set đồ
+      const isSetQuery = /(set|bộ|combo|outfit|phối|kết hợp|gợi ý.*đồ|cafe|chơi|đi|dự|tiệc)/i.test(message);
       
-      // Tìm sản phẩm - TĂNG LIMIT để có đủ sản phẩm cho user request
-      let products = await Product.find(query).sort({ bestseller: -1, date: -1 }).limit(10);
-      
-      // Fallback nếu không tìm thấy
+      if (isSetQuery || products.length === 0) {
+         console.log('🎯 SET/General query - Loading diverse product selection...');
+         
+         // Get all product types dynamically
+         const allProductTypes = await Product.distinct('productType');
+         
+         // Separate shirt types and pants types dynamically
+         const shirtTypes = allProductTypes.filter(type => 
+            !type.toLowerCase().includes('jogger') && 
+            !type.toLowerCase().includes('pants')
+         );
+         const pantsTypes = allProductTypes.filter(type => 
+            type.toLowerCase().includes('jogger') || 
+            type.toLowerCase().includes('pants')
+         );
+
+         console.log(`👔 Shirt types: ${shirtTypes.join(', ')}`);
+         console.log(`👖 Pants types: ${pantsTypes.join(', ')}`);
+
+         // Get diverse products for comprehensive recommendations
+         const shirtProducts = shirtTypes.length > 0 ? await Product.find({ 
+            productType: { $in: shirtTypes } 
+         }).sort({ bestseller: -1, date: -1 }).limit(10) : [];
+         
+         const pantsProducts = pantsTypes.length > 0 ? await Product.find({ 
+            productType: { $in: pantsTypes } 
+         }).sort({ bestseller: -1, date: -1 }).limit(5) : [];
+         
+         products = [...shirtProducts, ...pantsProducts];
+         console.log(`�️ Dynamic SET search: ${shirtProducts.length} shirts + ${pantsProducts.length} pants = ${products.length} total`);
+      }
+
+      // 4. FALLBACK - Lấy sản phẩm đa dạng từ toàn bộ database
       if (products.length === 0) {
-         console.log('⚠️ No products found with specific query, trying bestsellers...');
-         products = await Product.find({ bestseller: true }).sort({ date: -1 }).limit(10);
+         console.log('🔄 Fallback - Loading recent and popular products...');
+         
+         // Get recent products and bestsellers
+         const recentProducts = await Product.find({})
+            .sort({ date: -1 })
+            .limit(10);
+            
+         const bestsellerProducts = await Product.find({ bestseller: true })
+            .sort({ date: -1 })
+            .limit(10);
+            
+         // Merge and deduplicate
+         const allProducts = [...recentProducts, ...bestsellerProducts];
+         const uniqueProducts = allProducts.filter((product, index, self) => 
+            index === self.findIndex(p => p._id.toString() === product._id.toString())
+         );
+         
+         products = uniqueProducts.slice(0, 15);
+         console.log(`🌟 Fallback loaded ${products.length} diverse products (recent + bestsellers)`);
+      }
+
+      // 5. FINAL PROCESSING - Log and return
+      console.log(`📦 Final result: ${products.length} products for Gemini processing`);
+      
+      if (products.length > 0) {
+         const productSummary = products.map(p => ({
+            name: p.name.substring(0, 25) + '...',
+            type: p.productType,
+            price: p.price,
+            bestseller: p.bestseller
+         }));
+         console.log(`🏷️ Product summary:`, productSummary);
       }
       
-      // Final fallback
-      if (products.length === 0) {
-         console.log('⚠️ No bestsellers found, trying any products...');
-         products = await Product.find({}).sort({ date: -1 }).limit(5);
-      }
-      
-      console.log(`📦 Found ${products.length} products for Gemini processing`);
       return products;
       
    } catch (error) {
-      console.error('Error in findProductsForGemini:', error);
+      console.error('❌ Error in dynamic product search:', error);
       return [];
    }
 }
 
 /**
- * Generate Gemini AI response với Smart Image Logic
+ * Generate Gemini AI response với Smart Image Logic - ENHANCED FOR SET OUTFIT
  */
 export async function generateGeminiAI(message, roomId = null) {
    try {
@@ -129,23 +176,100 @@ export async function generateGeminiAI(message, roomId = null) {
       // Check if user is asking about sizing/fit
       const isSizeInquiry = /(cân\s*nặng|kg|size|vừa|không|fit|lớn|nhỏ|rộng|chật|mặc.*có|đi.*được|phù\s*hợp|fit.*không)/i.test(message);
       
-      // Define image confirmation pattern - UPDATED to exclude size inquiries
-      const isImageConfirmation = (/\b(có|yes|ok|được|show|xem|hiển thị|cho xem|oke|đc|muốn|want|ừ|ừm|vâng)\b/i.test(message) ||
+      // Check if user wants to see pants image specifically
+      const isPantsImageRequest = /(xem.*ảnh.*quần|ảnh.*quần|quần.*ảnh|cho.*xem.*quần)/i.test(message);
+      
+      // Define image confirmation pattern - UPDATED to exclude size inquiries and include pants request
+      const isImageConfirmation = ((/\b(có|yes|ok|được|show|xem|hiển thị|cho xem|oke|đc|muốn|want|ừ|ừm|vâng)\b/i.test(message) ||
                                  message.trim().toLowerCase() === 'có' ||
                                  message.trim().toLowerCase() === 'ok' ||
                                  message.trim().toLowerCase() === 'yes' ||
-                                 message.trim().toLowerCase() === 'ừ') && !isSizeInquiry;
-      
-      // Check for image confirmation first - BUT NOT if asking for different product OR sizing
+                                 message.trim().toLowerCase() === 'ừ') && !isSizeInquiry) || isPantsImageRequest;
+
+      // ENHANCED: Check for SET image confirmation first
       if (isImageConfirmation && !hasSpecificProductType && !isSizeInquiry) {
-         const lastProduct = getLastMentionedProduct(roomId);
-         if (lastProduct && lastProduct.image && lastProduct.image.length > 0) {
-            const price = Math.round(lastProduct.price / 1000) + 'k';
-            console.log(`📸 Showing image for confirmed product: ${lastProduct.name}`);
-            return {
-               message: `Dạ! Đây là ảnh sản phẩm ạ! 😍\n\n📸 **${lastProduct.name}**\n💰 Giá: ${price}\n📏 Size: ${lastProduct.sizes?.join(', ') || 'S, M, L'}\n🎯 ${lastProduct.productType}\n\nSản phẩm này đẹp lắm! Bạn thích không? 🥰`,
-               image: lastProduct.image[0]
-            };
+         const context = getConversationContext(roomId);
+         
+         // Check if user is asking for a specific product by name - DYNAMIC DETECTION
+         const isSpecificProductRequest = /\b(xem|cho|tôi|muốn)\s+(xem\s+)?(áo|quần|sản\s*phẩm)\s+[\wÀ-ỹ\s]{3,}/i.test(message);
+         
+         if (isSpecificProductRequest) {
+            console.log(`🎯 User requesting specific product, skipping image confirmation logic`);
+            // Don't process as image confirmation, let it fall through to main AI processing
+         } else {
+            // Check if user originally asked for a SET (áo + quần)
+            const isSetQuery = context?.originalQuery && /(set|bộ|combo|outfit|phối|kết hợp|gợi ý.*đồ)/i.test(context.originalQuery);
+            
+            if (isSetQuery && context?.lastProducts?.length >= 2) {
+               // For SET queries - Use the EXACT products that were stored in context
+               // This ensures consistency with what AI recommended
+               const shirtProduct = context.lastProduct; // This should be the shirt AI recommended
+               
+               // Dynamically find pants from context
+               const allProductTypes = await Product.distinct('productType');
+               const pantsTypes = allProductTypes.filter(type => 
+                  type.toLowerCase().includes('jogger') || 
+                  type.toLowerCase().includes('pants')
+               );
+               
+               const pantsProduct = context.lastProducts.find(p => pantsTypes.includes(p.productType));
+               
+               console.log(`🔄 SET Confirmation - Using stored products:`);
+               console.log(`   👕 Shirt from context: ${shirtProduct?.name}`);
+               console.log(`   👖 Pants from context: ${pantsProduct?.name || 'NOT FOUND'}`);
+               
+               if (shirtProduct && pantsProduct && shirtProduct.image?.length > 0) {
+                  const shirtPrice = Math.round(shirtProduct.price / 1000) + 'k';
+                  const pantsPrice = Math.round(pantsProduct.price / 1000) + 'k';
+                  console.log(`👔👖 Showing SET with SHIRT image: ${shirtProduct.name} + ${pantsProduct.name}`);
+                  
+                  // Update context to track SET state
+                  setConversationContext(roomId, {
+                     ...context,
+                     lastAction: 'showed_shirt_in_set',
+                     setShirtShown: true,
+                     pantsToShow: pantsProduct
+                  });
+                  
+                  return {
+                     message: `Dạ! Đây là set đồ mình gợi ý ạ! 😍\n\n👕 **${shirtProduct.name}**\n💰 Giá: ${shirtPrice} | 📏 Size: ${shirtProduct.sizes?.join(', ') || 'S, M, L'}\n\n👖 **${pantsProduct.name}**\n💰 Giá: ${pantsPrice} | 📏 Size: ${pantsProduct.sizes?.join(', ') || 'S, M, L'}\n\n📸 Đây là ảnh áo ạ! Muốn xem ảnh quần, bạn nói "xem ảnh quần" nhé! 😊`,
+                     image: shirtProduct.image[0]
+                  };
+               }
+            }
+            
+            // Check if user wants to see PANTS after seeing shirt in set
+            if ((isPantsImageRequest || isImageConfirmation) && context?.setShirtShown && context?.pantsToShow) {
+               const pantsProduct = context.pantsToShow;
+               if (pantsProduct.image?.length > 0) {
+                  const pantsPrice = Math.round(pantsProduct.price / 1000) + 'k';
+                  console.log(`👖 Showing PANTS image in SET: ${pantsProduct.name}`);
+                  
+                  // Clear set state
+                  setConversationContext(roomId, {
+                     ...context,
+                     lastAction: 'showed_pants_in_set',
+                     setShirtShown: false,
+                     pantsToShow: null
+                  });
+                  
+                  return {
+                     message: `Đây là ảnh quần trong set ạ! 😍\n\n👖 **${pantsProduct.name}**\n💰 Giá: ${pantsPrice}\n📏 Size: ${pantsProduct.sizes?.join(', ') || 'S, M, L'}\n\nSet này hoàn hảo cho buổi cafe!`,
+                     image: pantsProduct.image[0]
+                  };
+               }
+            }
+            
+            // Fallback to single product (original logic) - only if not a specific product request
+            const lastProduct = getLastMentionedProduct(roomId);
+            if (lastProduct && lastProduct.image && lastProduct.image.length > 0 && !isSpecificProductRequest) {
+               const price = Math.round(lastProduct.price / 1000) + 'k';
+               console.log(`📸 Showing single product image: ${lastProduct.name}`);
+               return {
+                  message: `Dạ! Đây là ảnh sản phẩm ạ! 😍\n\n📸 **${lastProduct.name}**\n💰 Giá: ${price}\n📏 Size: ${lastProduct.sizes?.join(', ') || 'S, M, L'}\n🎯 ${lastProduct.productType}\n\nBạn thích không? 🥰`,
+                  image: lastProduct.image[0]
+               };
+            }
          }
       }
 
@@ -157,267 +281,209 @@ export async function generateGeminiAI(message, roomId = null) {
       
       console.log(`🚀 Using real Gemini AI for: "${message}"`);
       
-      // 1. FIRST: Check for image confirmation
-      const context = getConversationContext(roomId);
+      // Find products for context
+      const contextProducts = await findProductsForGemini(message);
+      console.log(`🛍️ Found ${contextProducts.length} products for Gemini`);
       
-      if (isImageConfirmation && context && context.lastAction === 'asked_for_image' && context.lastProduct) {
-         console.log('🔍 Image confirmation detected, showing product image');
-         
-         const product = context.lastProduct;
-         const imageUrl = product.image && product.image[0] ? product.image[0] : null;
-         
-         if (imageUrl) {
-            const responseText = `Dạ! Đây là ảnh sản phẩm ạ! 😍\n\n📸 **${product.name}**\n💰 Giá: ${product.price.toLocaleString()}k\n📏 Size: ${product.sizes.join(', ')}\n🎯 ${product.productType}\n\nSản phẩm này đẹp lắm! Bạn thích không? 🥰`;
-            
-            // Update context
-            setConversationContext(roomId, {
-               lastAction: 'showed_image',
-               lastProduct: product,
-               lastProducts: context.lastProducts,
-               lastResponse: responseText,
-               originalQuery: context.originalQuery,
-               aiProvider: 'Gemini'
-            });
-            
-            return {
-               message: responseText,
-               image: imageUrl
-            };
-         }
-      }
-      
-      // 2. Check if user is referring to a previous product (STRICTER CHECK)
-      // const context = getConversationContext(roomId); // Already got above
-      let isReferringToPrevious = /(áo này|sản phẩm này|cái này|này.*có|có.*này|item này|product này)/i.test(message) &&
-                                  !hasSpecificProductType;
-      
-      // 3. Tìm sản phẩm liên quan - ALWAYS SEARCH NEW if user mentions specific product type
-      let products = [];
-      
-      if (isReferringToPrevious && context?.lastProducts?.length > 0) {
-         // Use products from conversation context ONLY if no specific product type mentioned
-         products = context.lastProducts;
-         console.log(`🔗 Using products from conversation context: ${products.length} items`);
-      } else {
-         // Find new products - CLEAR old context when searching for new products
-         if (hasSpecificProductType && roomId) {
-            console.log(`🔄 Clearing old context - user asking for specific product type`);
-            // Don't completely clear, but mark as new search
-         }
-         products = await findProductsForGemini(message);
-      }
-      console.log(`🛍️ Found ${products.length} products for Gemini`);
-      
-      // 3. Tạo context với thông tin ảnh theo productType structure
-      let productContext = products.length > 0
-         ? products.map((p, index) => {
+      // Create product context ngắn gọn với links
+      let productContext = contextProducts.length > 0
+         ? contextProducts.map((p, index) => {
             const price = Math.round(p.price / 1000) + 'k';
-            const hasImage = p.image && p.image.length > 0 ? ' (có ảnh)' : '';
-            const productInfo = p.productType ? ` - ${p.productType}` : '';
-            const sizes = p.sizes && p.sizes.length > 0 ? ` - Sizes có sẵn: ${p.sizes.join(', ')}` : ' - Không có thông tin size';
-            // Shorten description but keep important info
-            const description = p.description ? ` - ${p.description.substring(0, 80).replace(/\r\n/g, ' ')}...` : '';
-            return `${index + 1}. **${p.name}**${productInfo} - ${price}${sizes}${hasImage}${description}`;
-         }).join('\n\n')
+            return `${index + 1}. **${p.name}** [🔗](/product/${p._id}) - ${price}`;
+         }).join('\n')
          : 'Không có sản phẩm cụ thể.';
 
-      // Lưu context sản phẩm vào cache nếu có roomId và có danh sách
-      if (roomId && products.length > 0) {
-         productContextCache[roomId] = products;
+      // Cache products by roomId
+      if (roomId && contextProducts.length > 0) {
+         productContextCache[roomId] = contextProducts;
       }
 
-      // 4. Prompt cho Gemini - TỰ NHIÊN VÀ ĐÚNG TRỌNG TÂM - IMPROVED
+      // Use Gemini AI model
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      console.log('🎯 Using Gemini model: gemini-1.5-flash');
+      console.log('🎯 Using Gemini Fashion Consultant: gemini-1.5-flash');
       
-      // Phân tích ý định người dùng
+      // Analyze user intent
       const isShirtQuery = /(áo(?!\s*khoác)|shirt|tshirt|t-shirt|hoodie|sweater|ringer|relaxed)/i.test(message);
       const isPantsQuery = /(quần|pants|jogger|jean)/i.test(message);
-      const queryType = isShirtQuery ? "áo/shirt" : isPantsQuery ? "quần/pants" : "general";
+      const isGeneralProductQuery = /(có.*gì|sản\s*phẩm.*gì|shop.*có|hàng.*có|bán.*gì)/i.test(message) && !isShirtQuery && !isPantsQuery;
+      const isShirtListQuery = /(có.*áo|áo.*khác|áo.*gì|loại.*áo|shirt.*available)/i.test(message);
+      const isPantsListQuery = /(có.*quần|quần.*khác|quần.*gì|loại.*quần|pants.*available)/i.test(message);
+      const isPaymentQuery = /(thanh\s*toán|payment|phương\s*thức|hình\s*thức|trả\s*tiền|vnpay|cod|online|có.*thanh.*toán.*gì|thanh.*toán.*gì|trả.*tiền.*gì)/i.test(message);
       
-      const prompt = `Bạn là Ai-chan 🤖, trợ lý thời trang thân thiện của Chevai Fashion.
+      const queryType = isPaymentQuery ? "thanh toán" :
+                       isShirtListQuery || (isShirtQuery && /(có.*gì|gì)/i.test(message)) ? "danh sách áo" :
+                       isPantsListQuery || (isPantsQuery && /(có.*gì|gì)/i.test(message)) ? "danh sách quần" :
+                       isGeneralProductQuery ? "tổng quan sản phẩm" : 
+                       isShirtQuery ? "áo/shirt" : 
+                       isPantsQuery ? "quần/pants" : "general";
+      
+      console.log(`🔍 Query analysis: message="${message}", queryType="${queryType}", isPaymentQuery=${isPaymentQuery}`);
+      
+      const prompt = `Bạn là tư vấn viên Chevai Fashion 👗
 
-**TIN NHẮN CỦA USER**: "${message}"
-**LOẠI QUERY**: ${queryType}
+**KHÁCH YÊU CẦU**: "${message}"
 
-**NGUYÊN TẮC TRẢ LỜI**:
-- Trả lời TỰ NHIÊN như người bạn thật
-- NGẮN GỌN, dễ hiểu (1-3 câu)
-- ĐÚNG TRỌNG TÂM với câu hỏi
-- ${isShirtQuery ? "CHỈ GIỚI THIỆU ÁO (T-shirt, Hoodie, Sweater, RelaxedFit, Ringer)" : ""}
-- ${isPantsQuery ? "CHỈ GIỚI THIỆU QUẦN (Jogger)" : ""}
-- Sử dụng emoji phù hợp nhưng không quá nhiều
-- CHỈ dùng thông tin từ danh sách sản phẩm bên dưới
-
-**SẢN PHẨM CÓ SẴN**:
+**SẢN PHẨM CÓ SẴN**: 
 ${productContext}
 
-**CÁCH XỬ LÝ CÁC TÌNH HUỐNG**:
+**YÊU CẦU QUAN TRỌNG**:
+- Trả lời ngắn gọn (100-150 từ)
+- Chỉ tư vấn sản phẩm có trong danh sách trên
+- PHẢI COPY CHÍNH XÁC tên sản phẩm và link từ danh sách
+- VÍ DỤ: Nếu danh sách có "**Áo ABC** [🔗](/product/123)" thì phải viết y hệt "**Áo ABC** [🔗](/product/123)"
+- TUYỆT ĐỐI KHÔNG tự tạo link khác
+- Không nhắc đến ảnh
 
-1. **CHÀO HỎI**: Chào ngắn gọn + hỏi cần gì
-   VD: "Chào bạn! Cần tìm trang phục gì không? 😊"
+${/(cho.*xem|xem.*áo|xem.*quần|show.*me|muốn.*xem)/i.test(message) ? 'Khách muốn XEM - giới thiệu ngắn gọn.' : ''}
+${/(set|bộ|combo|outfit|phối)/i.test(message) ? 'Tư vấn SET ÁO + QUẦN từ danh sách, COPY CHÍNH XÁC links.' : ''}
 
-2. **HỎI VỀ ÁO** (áo, shirt, hoodie, sweater):
-   - CHỈ giới thiệu các loại áo từ danh sách
-   - Nói giá và 1-2 điểm nổi bật
-   - Tư vấn size phù hợp nếu user nhắc cân nặng
-
-3. **HỎI VỀ QUẦN** (quần, jogger, pants):
-   - CHỈ giới thiệu quần từ danh sách
-   - Nói giá và đặc điểm
-   - Tư vấn size phù hợp nếu user nhắc cân nặng
-
-4. **HỎI VỀ SIZE/CÂN NẶNG/FIT** (quan trọng):
-   - Tư vấn cụ thể dựa trên cân nặng:
-     * 45-55kg → Size S
-     * 55-65kg → Size M  
-     * 65-75kg → Size L
-     * 75kg+ → Size XL
-   - Kiểm tra size có sẵn trong sản phẩm
-   - Nếu size phù hợp có sẵn: "Size X sẽ vừa vặn với cân nặng của bạn"
-   - Nếu size không có: "Size phù hợp hiện chưa có, size gần nhất là Y"
-   - Đưa ra lời khuyên về fit (ôm, vừa vặn, rộng rãi)
-
-5. **MUỐN XEM ẢNH**:
-   - Nói "Đây nha!" hoặc "Xem này!"
-   - Mô tả ngắn về sản phẩm
-
-6. **XÁC NHẬN** (có, ok, được):
-   - Hiểu user đồng ý/chọn sản phẩm
-   - Hỏi có cần hỗ trợ gì thêm
-
-**VÍ DỤ TRẢ LỜI HAY**:
-- User: "60kg có áo nào phù hợp?"
-  → "Với 60kg thì size M sẽ vừa vặn! Mình gợi ý áo Relaxed Fit 159k hoặc áo Ringer 169k, cả hai đều đẹp và thoải mái lắm! Bạn thích kiểu nào hơn? 😊"
-
-- User: "có quần nào đẹp?"
-  → "Có nha! Quần Ống Suông Nỉ Bông 389k, chất nỉ bông mềm mại, phom suông thoải mái. Bạn muốn xem ảnh không? 👖"
-
-- User: "mình 60kg mặc áo đó có vừa không?"
-  → "Với 60kg của bạn thì size M sẽ vừa vặn! Áo này có size M không nha, sẽ ôm vừa phải và thoải mái. Bạn thích phom vừa hay rộng hơn? 😊"
-
-- User: "75kg mặc size nào?"
-  → "Với 75kg thì size L hoặc XL đều phù hợp! Size L sẽ vừa vặn, size XL sẽ rộng rãi thoải mái hơn. Bạn thích phom nào? 👕"
-
-**LƯU Ý QUAN TRỌNG**:
-- KHÔNG nhầm lẫn giữa áo và quần
-- KHÔNG tự tạo tên sản phẩm
-- CHỈ dùng thông tin từ danh sách
-- Luôn có câu hỏi cuối để tiếp tục chat
-
-Hãy trả lời ĐÚNG TRỌNG TÂM và TỰ NHIÊN!`;
+Trả lời:`;
 
       const result = await model.generateContent(prompt);
       const response = result.response.text();
-
       console.log(`🤖 Gemini response: ${response.length} chars`);
-      console.log(`📝 Response content: ${response.substring(0, 100)}...`);
 
-      // 5. Chỉ lấy sản phẩm theo số thứ tự nếu AI vừa trả về danh sách context (ưu tiên lấy từ cache nếu có roomId)
-      let recommendedProduct = null;
-      let contextProducts = products;
-      if (roomId && productContextCache[roomId]) {
-         contextProducts = productContextCache[roomId];
-      }
-      const hasProductList = contextProducts && contextProducts.length > 0;
-      const productIndexMatch = hasProductList && message.match(/(?:sản phẩm|item|product)\s*(?:số\s*)?(\d+)/i);
-      
-      if (hasProductList && productIndexMatch) {
-         const requestedIndex = parseInt(productIndexMatch[1]) - 1;
-         if (requestedIndex >= 0 && requestedIndex < contextProducts.length) {
-            recommendedProduct = contextProducts[requestedIndex];
-            console.log(`🎯 Found product by INDEX: #${requestedIndex + 1} - ${recommendedProduct.name}`);
-         } else {
-            console.log(`⚠️ User requested product #${requestedIndex + 1} but only have ${contextProducts.length} products`);
-            return {
-               message: `Xin lỗi bạn! 😅 Hiện tại mình chỉ có ${contextProducts.length} sản phẩm thôi (từ 1 đến ${contextProducts.length}).\n\nBạn muốn xem sản phẩm nào? 🛍️`,
-               image: null
-            };
-         }
-      }
-      // NEW: Tìm sản phẩm theo tên khi user search cụ thể
-      else if (hasProductList && /(cho|xem|muốn|tìm)\s*(sản phẩm|áo|quần)/i.test(message)) {
-         // Tìm sản phẩm có tên khớp nhất với query
-         const productNameInMessage = message.toLowerCase();
-         for (const product of contextProducts) {
-            if (product.name && productNameInMessage.includes(product.name.toLowerCase().substring(0, 20))) {
-               recommendedProduct = product;
-               console.log(`🎯 Found product by NAME: ${recommendedProduct.name}`);
-               break;
-            }
-         }
-         // Fallback: nếu không tìm thấy theo tên, lấy sản phẩm đầu tiên
-         if (!recommendedProduct && contextProducts.length > 0) {
-            recommendedProduct = contextProducts[0];
-            console.log(`🎯 Using first product as fallback: ${recommendedProduct.name}`);
-         }
-      }
-      
-      // Nếu user hỏi câu mới không liên quan (nhưng giữ context cho confirmation)
-      const isConfirmation = /^(có|ok|yes|được|đồng\s*ý|ừ|ừm|vâng)$/i.test(message.trim());
-      if (roomId && !productIndexMatch && !isConfirmation) {
-         // Chỉ xóa context nếu không phải confirmation và không phải tiếp tục cuộc trò chuyện
-         const isContinuation = /(cho|xem|muốn|tìm)\s*(sản phẩm|áo|quần|ảnh|hình)/i.test(message);
-         if (!isContinuation) {
-            delete productContextCache[roomId];
-         }
-      }
-
-      // 5. CHỈ hiển thị ảnh khi:
-      // - User hỏi cụ thể về 1 sản phẩm (theo số thứ tự hoặc product name)
-      // - User yêu cầu xem ảnh 
-      // - User confirm (có, ok, yes) sau khi được hỏi
-      // - AI recommend 1 sản phẩm cụ thể
-      // - AI response có nhắc đến "ảnh" hoặc "image"
-      const userWantsImage = /(ảnh|hình|image|xem|show|cho.*xem|muốn.*xem|cho.*mình.*xem)/i.test(message);
-      const userAsksSpecificProduct = /(?:sản phẩm|item|product)\s*(?:số\s*)?\d+/i.test(message) || /(cho|xem|muốn|tìm)\s*(sản phẩm|áo|quần)/i.test(message);
-      const userConfirms = /^(có|ok|yes|được|đồng\s*ý|ừ|ừm|vâng)$/i.test(message.trim());
-      const responseMentionsImage = /(ảnh|image|hình)/i.test(response);
-      const isRecommendingProduct = /(?:sản phẩm số|item \d+|product \d+)/i.test(response);
-
-      // CHỈ show ảnh khi có sản phẩm phù hợp và user có intent xem hoặc AI recommend cụ thể
-      const hasValidProduct = recommendedProduct !== null;
-      const shouldShowImage = hasValidProduct && (userWantsImage || userAsksSpecificProduct || userConfirms || responseMentionsImage || isRecommendingProduct);
-
-      if (shouldShowImage && recommendedProduct.image && recommendedProduct.image.length > 0) {
-         const reason = userAsksSpecificProduct ? 'specific product requested' : 
-                       responseMentionsImage ? 'AI mentioned image' : 
-                       isRecommendingProduct ? 'AI recommending product' :
-                       userConfirms ? 'user confirmed' :
-                       'image requested';
-         console.log(`📸 Adding relevant image from: ${recommendedProduct.name} (reason: ${reason})`);
-         return {
-            message: response,
-            image: recommendedProduct.image[0]
-         };
-      }
-
-      // 6. Store conversation context for product mentions and image requests - FIXED
-      const isAskingForImage = /(muốn xem ảnh|có muốn xem|xem ảnh không|want to see|see image|ảnh của sản phẩm|ảnh không)/i.test(response);
+      // Store conversation context for SET queries - ENHANCED
+      const isAskingForImage = /(muốn xem ảnh|có muốn xem|xem ảnh không|want to see|see image|ảnh của sản phẩm|ảnh không|cho.*xem)/i.test(response);
       const mentionsProduct = /(hoodie|sweater|jogger|t-shirt|áo|quần)/i.test(response) && contextProducts.length > 0;
+      const isSpecificProductRequest = /\b(xem|cho|tôi|muốn)\s+(xem\s+)?(áo|quần|sản\s*phẩm)\s+[\wÀ-ỹ\s]{3,}/i.test(message);
       
-      if (roomId && (isAskingForImage || mentionsProduct)) {
-         // FIXED: Store the most relevant product based on original query
+      // Check if user explicitly asks to see a product with image request
+      const isExplicitImageRequest = /(cho.*xem|xem.*áo|xem.*quần|show.*me|muốn.*xem|tôi.*xem|mình.*xem)/i.test(message) && contextProducts.length > 0;
+      
+      if (roomId && (isAskingForImage || mentionsProduct || isSpecificProductRequest)) {
+         // Check if this is a SET query (gợi ý set đồ, outfit, combo)
+         const isSetQuery = /(set|bộ|combo|outfit|phối|kết hợp|gợi ý.*đồ|set.*đồ)/i.test(message);
+         
          let productToStore = null;
          
-         if (recommendedProduct) {
-            productToStore = recommendedProduct;
-         } else if (contextProducts.length > 0) {
-            // Find most relevant product based on original message type
-            const isShirtQuery = /(áo(?!\s*khoác)|shirt|tshirt|t-shirt|hoodie|sweater|ringer|relaxed)/i.test(message);
-            const isPantsQuery = /(quần|pants|jogger|jean)/i.test(message);
-            
-            if (isShirtQuery) {
-               // Find first shirt type
-               const shirtTypes = ['T-shirt', 'RelaxedFit', 'Ringer', 'Hoodie', 'Sweater'];
-               productToStore = contextProducts.find(p => shirtTypes.includes(p.productType)) || contextProducts[0];
-               console.log(`👕 Storing shirt for context: ${productToStore.name}`);
-            } else if (isPantsQuery) {
-               // Find first pants type
-               productToStore = contextProducts.find(p => p.productType === 'Jogger') || contextProducts[0];
-               console.log(`👖 Storing pants for context: ${productToStore.name}`);
+         if (contextProducts.length > 0) {
+            if (isSetQuery) {
+               // For SET queries - DYNAMIC product type detection with RESPONSE CONSISTENCY
+               const allProductTypes = await Product.distinct('productType');
+               const shirtTypes = allProductTypes.filter(type => 
+                  !type.toLowerCase().includes('jogger') && 
+                  !type.toLowerCase().includes('pants')
+               );
+               const pantsTypes = allProductTypes.filter(type => 
+                  type.toLowerCase().includes('jogger') || 
+                  type.toLowerCase().includes('pants')
+               );
+
+               const shirtProducts = contextProducts.filter(p => shirtTypes.includes(p.productType));
+               const pantsProduct = contextProducts.find(p => pantsTypes.includes(p.productType));
+               
+               // SMART SHIRT SELECTION - Find the shirt mentioned in AI response
+               let selectedShirtProduct = null;
+               
+               if (shirtProducts.length > 0) {
+                  // Try to find shirt mentioned in the AI response
+                  const responseLower = response.toLowerCase();
+                  
+                  selectedShirtProduct = shirtProducts.find(shirt => {
+                     const shirtNameWords = shirt.name.toLowerCase().split(/\s+/);
+                     // Check if significant words from shirt name appear in response
+                     const significantWords = shirtNameWords.filter(word => 
+                        word.length > 3 && 
+                        !['thun', 'relaxed', 'fit', 'ringer', 'áo'].includes(word)
+                     );
+                     
+                     return significantWords.some(word => responseLower.includes(word));
+                  });
+                  
+                  // Fallback to first shirt if none found in response
+                  selectedShirtProduct = selectedShirtProduct || shirtProducts[0];
+               }
+               
+               productToStore = selectedShirtProduct || contextProducts[0];
+               
+               console.log(`👔👖 Dynamic SET context with CONSISTENCY CHECK:`);
+               console.log(`   📝 AI Response mentioned: ${selectedShirtProduct ? 'Found matching shirt' : 'Using fallback shirt'}`);
+               console.log(`   👕 Selected Shirt: ${productToStore?.name}`);
+               console.log(`   👖 Pants: ${pantsProduct?.name || 'NOT FOUND'}`);
+               
+               // If no pants found in context, dynamically find from database
+               if (!pantsProduct && selectedShirtProduct && pantsTypes.length > 0) {
+                  console.log('🔍 No pants in context, searching database dynamically...');
+                  const extraPants = await Product.find({ 
+                     productType: { $in: pantsTypes } 
+                  }).sort({ bestseller: -1 }).limit(1);
+                  
+                  if (extraPants.length > 0) {
+                     contextProducts.push(extraPants[0]);
+                     console.log(`➕ Added pants to context: ${extraPants[0].name} (${extraPants[0].productType})`);
+                  }
+               }
+            } else if (isSpecificProductRequest) {
+               // For specific product requests - DYNAMIC INTELLIGENT MATCHING
+               const requestLower = message.toLowerCase();
+               
+               // Extract meaningful keywords from user request
+               const requestKeywords = requestLower
+                  .replace(/[^\w\sÀ-ỹ]/g, ' ')
+                  .split(/\s+/)
+                  .filter(word => word.length > 2 && !['cho', 'tôi', 'xem', 'mình', 'một', 'của', 'với', 'và', 'có', 'là', 'này', 'đó', 'áo', 'quần'].includes(word));
+               
+               console.log(`🔍 Request keywords: ${requestKeywords.join(', ')}`);
+               
+               // Find exact product by name from user request
+               productToStore = contextProducts.find(p => {
+                  const productName = p.name.toLowerCase();
+                  const requestLower = message.toLowerCase();
+                  
+                  // Extract the product name from user request (after "xem")
+                  const nameMatch = requestLower.match(/(?:xem|show)\s+(.+)/i);
+                  if (nameMatch) {
+                     const requestedName = nameMatch[1].trim().toLowerCase();
+                     // Check if the requested name is contained in the product name
+                     return productName.includes(requestedName) || requestedName.includes(productName);
+                  }
+                  
+                  // Fallback: check if product name appears in the message
+                  return requestLower.includes(productName) || productName.includes(requestKeywords.join(' '));
+               });
+               
+               // If no keyword match, find by similarity
+               if (!productToStore) {
+                  productToStore = contextProducts.reduce((best, current) => {
+                     const currentName = current.name.toLowerCase();
+                     const bestName = best ? best.name.toLowerCase() : '';
+                     
+                     const currentMatches = requestKeywords.filter(keyword => currentName.includes(keyword)).length;
+                     const bestMatches = requestKeywords.filter(keyword => bestName.includes(keyword)).length;
+                     
+                     return currentMatches > bestMatches ? current : best;
+                  }, null);
+               }
+               
+               // Final fallback to first product
+               productToStore = productToStore || contextProducts[0];
+               
+               console.log(`🎯 Dynamic specific product match: ${productToStore?.name}`);
             } else {
-               productToStore = contextProducts[0];
+               // Find most relevant single product - DYNAMIC TYPE DETECTION
+               const isShirtQuery = /(áo(?!\s*khoác)|shirt|tshirt|t-shirt|hoodie|sweater|ringer|relaxed)/i.test(message);
+               const isPantsQuery = /(quần|pants|jogger|jean)/i.test(message);
+               
+               if (isShirtQuery) {
+                  // Dynamically get all shirt types
+                  const allTypes = await Product.distinct('productType');
+                  const shirtTypes = allTypes.filter(type => 
+                     !type.toLowerCase().includes('jogger') && 
+                     !type.toLowerCase().includes('pants')
+                  );
+                  productToStore = contextProducts.find(p => shirtTypes.includes(p.productType)) || contextProducts[0];
+               } else if (isPantsQuery) {
+                  // Dynamically get all pants types  
+                  const allTypes = await Product.distinct('productType');
+                  const pantsTypes = allTypes.filter(type => 
+                     type.toLowerCase().includes('jogger') || 
+                     type.toLowerCase().includes('pants')
+                  );
+                  productToStore = contextProducts.find(p => pantsTypes.includes(p.productType)) || contextProducts[0];
+               } else {
+                  productToStore = contextProducts[0];
+               }
             }
          }
          
@@ -425,17 +491,29 @@ Hãy trả lời ĐÚNG TRỌNG TÂM và TỰ NHIÊN!`;
             setConversationContext(roomId, {
                lastAction: isAskingForImage ? 'asked_for_image' : 'mentioned_product',
                lastProduct: productToStore,
-               lastProducts: contextProducts, // Store all products for choice
+               lastProducts: contextProducts,
                lastResponse: response,
-               originalQuery: message, // Store original query for better context
+               originalQuery: message, // Store original query for SET detection
+               isSetQuery: isSetQuery, // Flag for SET queries
                aiProvider: 'Gemini'
             });
-            console.log(`💭 Stored context - ${isAskingForImage ? 'asking for image' : 'mentioned product'}: ${productToStore.name}`);
+            console.log(`💭 Stored context - ${isSetQuery ? 'SET' : isSpecificProductRequest ? 'SPECIFIC' : 'single'} ${isAskingForImage ? 'asking for image' : 'mentioned product'}: ${productToStore.name}`);
+            
+            // AUTO-SHOW IMAGE: If user explicitly asks to see a product, show image immediately
+            if (isExplicitImageRequest && productToStore.image && productToStore.image.length > 0) {
+               const price = Math.round(productToStore.price / 1000) + 'k';
+               console.log(`🖼️ Auto-showing image for explicit request: ${productToStore.name}`);
+               
+               return {
+                  message: `Dạ! Đây là ảnh sản phẩm bạn yêu cầu ạ! 😍\n\n📸 **${productToStore.name}**\n💰 Giá: ${price}\n📏 Size: ${productToStore.sizes?.join(', ') || 'S, M, L'}\n🎯 ${productToStore.productType}\n\n[**XEM SẢN PHẨM**](/product/${productToStore._id})\n\nSản phẩm này rất đẹp! Bạn thích không? 🥰`,
+                  image: productToStore.image[0]
+               };
+            }
          }
       }
 
-      // 7. KHÔNG có ảnh khi không cần thiết
-      console.log(`📝 Returning text-only response (${hasValidProduct ? 'product found but no image needed' : 'no matching product'})`);
+      // Return text-only response
+      console.log(`📝 Returning text-only response (${contextProducts.length > 0 ? 'product found but no image needed' : 'no matching product'})`);
       return response;
 
    } catch (error) {
@@ -452,7 +530,7 @@ Hãy trả lời ĐÚNG TRỌNG TÂM và TỰ NHIÊN!`;
       const hasKeyword = keywords.some(keyword => message.toLowerCase().includes(keyword));
 
       if (hasKeyword) {
-         return "Xin chào! 👋 Mình là AI của Chevai Fashion! Chevai có T-shirt, Hoodie, Sweater, Jogger và nhiều sản phẩm thời trang đẹp lắm! Bạn muốn xem gì? 😊✨";
+         return "Xin chào! 👋 Mình là AI của Chevai Fashion! Chevai có nhiều sản phẩm thời trang đẹp lắm! Bạn muốn xem gì? 😊✨";
       }
 
       return "Xin lỗi, mình đang gặp sự cố nhỏ! 😅 Thử hỏi lại hoặc liên hệ admin nhé! 🛠️";
@@ -484,7 +562,7 @@ export function shouldGeminiRespond(message) {
    const fashionKeywords = /(áo|quần|thời trang|fashion|clothes|shirt|pants|hoodie|sweater|jogger|tshirt|ringer|relaxed)/i;
    const validQuestion = /(gì|nào|sao|như|khi|có|bao|price|giá|size|màu|color)/i;
    const greeting = /(chào|hello|hi|xin)/i;
-   const imageRequest = /(hình|ảnh|image|photo|pic|xem|show|cho.*xem|muốn.*xem)/i;
+   const imageRequest = /(hình|ảnh|image|photo|pic|xem|show|cho.*xem|muốn.*xem|tôi.*xem|mình.*xem)/i;
    
    return fashionKeywords.test(trimmed) || validQuestion.test(trimmed) || greeting.test(trimmed) || imageRequest.test(trimmed);
 }

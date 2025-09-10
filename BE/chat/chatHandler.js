@@ -2,11 +2,10 @@ import chatModel from '../models/chatModel.js';
 import productModel from '../models/productModel.js';
 import { isImageConfirmation, getConversationContext } from './conversationContext.js';
 
-// 🚀 SMART AI - Tối ưu và học từ người dùng!
-import { smartAI } from './smartAI.js';
-import { learningService } from './learningService.js';
+// 🤖 GEMINI AI ONLY - Simplified and Clean
+import { generateGeminiAI, shouldGeminiRespond } from './aiServiceGemini.js';
 
-console.log('🤖 AI Engine: Smart AI Router with Deep Learning');
+console.log('🤖 AI Engine: Gemini AI');
 
 // Track online admins
 let onlineAdmins = new Set();
@@ -79,11 +78,6 @@ export function initializeChatHandlers(io) {
             // Also send to admin room so all admins receive user messages
             io.to('admin-room').emit('receive_message', messageToEmit);
 
-            // 🧠 DEEP LEARNING: Learn from user message
-            if (senderType === 'user') {
-               await learningService.learnFromMessage(senderId, message);
-            }
-
             // Check if user mentioned @ai or AI should respond
             const mentionedAI = message.toLowerCase().includes('@ai');
             const shouldAIRespond = senderType === 'user' && (onlineAdmins.size === 0 || mentionedAI);
@@ -100,15 +94,64 @@ export function initializeChatHandlers(io) {
                io.to(roomId).emit('ai_typing_start');
                
                try {
-                  // Generate Smart AI response (automatically chooses best AI)
-                  const aiResponse = await smartAI.chat(cleanMessage, senderId, roomId);
+                  // Generate Gemini AI response directly
+                  const aiResponse = await generateGeminiAI(cleanMessage, senderId);
 
-                  // Handle response with image
+                  // Handle response with multiple products or single product
                   let responseMessage = aiResponse.message || aiResponse;
                   let responseImage = aiResponse.image || null;
-                  let aiProvider = aiResponse.aiProvider || 'Smart AI';
+                  let aiProvider = 'Gemini AI';
+                  
+                  console.log(`${aiProvider} response generated - Message length: ${responseMessage.length}, Has image: ${!!responseImage}, Type: ${aiResponse.type || 'single'}`);
 
-                  console.log(`${aiProvider} response generated - Message length: ${responseMessage.length}, Has image: ${!!responseImage}`);
+                  // Xử lý outfit với nhiều sản phẩm
+                  if (aiResponse.type === 'outfit' && aiResponse.products) {
+                     // Gửi từng sản phẩm riêng biệt
+                     for (let i = 0; i < aiResponse.products.length; i++) {
+                        const product = aiResponse.products[i];
+                        
+                        // Tạo message riêng cho từng sản phẩm
+                        const aiMessage = new chatModel({
+                           roomId,
+                           senderId: 'ai-assistant',
+                           senderName: `Ai-chan 🤖 (${aiProvider})`,
+                           senderType: 'ai',
+                           message: product.message,
+                           image: product.image || null,
+                           timestamp: new Date()
+                        });
+
+                        await aiMessage.save();
+                        console.log(`Emitting AI message ${i+1}:`, aiMessage.toObject());
+                        io.to(roomId).emit('new_message', aiMessage.toObject());
+                        
+                        // Delay nhỏ giữa các message để tự nhiên hơn
+                        if (i < aiResponse.products.length - 1) {
+                           await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                     }
+                     
+                     // Gửi message tổng kết
+                     if (responseMessage && responseMessage.trim()) {
+                        const summaryMessage = new chatModel({
+                           roomId,
+                           senderId: 'ai-assistant', 
+                           senderName: `Ai-chan 🤖 (${aiProvider})`,
+                           senderType: 'ai',
+                           message: responseMessage,
+                           timestamp: new Date()
+                        });
+
+                        await summaryMessage.save();
+                        io.to(roomId).emit('new_message', summaryMessage.toObject());
+                     }
+                     
+                     // QUAN TRỌNG: Stop typing indicator
+                     console.log(`🤖 AI typing stopped for room: ${roomId}`);
+                     io.to(roomId).emit('ai_typing_stop');
+                     
+                     return; // Exit early, đã xử lý xong
+                  }
 
                   // Tìm sản phẩm được gợi ý trong message AI
                   let suggestedProduct = null;
@@ -161,9 +204,6 @@ export function initializeChatHandlers(io) {
                   });
 
                   await aiMessage.save();
-
-                  // 🧠 DEEP LEARNING: Learn from AI response
-                  await learningService.learnFromResponse(senderId, cleanMessage, responseMessage);
 
                   // Send AI response with delay for natural feel
                   setTimeout(() => {

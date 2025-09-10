@@ -138,17 +138,6 @@ const Product = () => {
         hideProgressBar: false
       });
 
-      // Convert product image to RGB blob
-      const productImageBlob = await fetch(productData.image[0])
-        .then(response => response.blob())
-        .then(async (blob) => {
-          // Convert to File object first
-          const file = new File([blob], 'product-image.jpg', { type: 'image/jpeg' });
-          // Convert to RGB
-          return await convertToRGB(file);
-        });
-
-      // Create FormData with RGB images
       const formData = new FormData();
       formData.append('people', userImage, 'user-image.jpg');
       formData.append('clothes', productImageBlob, 'product-image.jpg');

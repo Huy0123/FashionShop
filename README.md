@@ -95,7 +95,7 @@
 
 ### **1. Clone repository**
 ```bash
-git clone https://github.com/Huy0123/Chevai-Fashion-E-commerce.git
+git clone 
 cd "Chevai fashional"
 ```
 
