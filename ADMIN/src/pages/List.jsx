@@ -1,5 +1,6 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { backend_Url, formatCurrency } from '../App';
 import { toast } from 'react-toastify';
 
@@ -41,6 +42,10 @@ const List = ({ token }) => {
     fetchList()
   }, [])
 
+  const navigate = useNavigate();
+  const handleEdit = (item) => {
+    navigate('/add', { state: { editProduct: item } });
+  }
   return (
     <>
       <p className='mb-2 font-bold'> DANH SÁCH SẢN PHẨM</p>
@@ -61,7 +66,11 @@ const List = ({ token }) => {
               <p>{item.name}</p>
               <p>{item.productType}</p>
               <p>{formatCurrency(item.price)}</p>
-              <p onClick={() => removeProduct(item._id)} className='text-right md:text-center cursor-pointer text-lg'>X</p>
+              <div className='flex items-center justify-center gap-2'>
+                <button className='text-black px-2' onClick={() => handleEdit(item)}>Sửa</button>
+                <span className='mx-1'>/</span>
+                <p onClick={() => removeProduct(item._id)} className='cursor-pointer text-lg text-black'>X</p>
+              </div>
             </div>
           ))
         }

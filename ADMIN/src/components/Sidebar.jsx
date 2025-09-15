@@ -5,6 +5,12 @@ const Sidebar = () =>{
   return (
     <div className='w-[18%] min-h-screen border-r-2'>
         <div className='flex flex-col gap-4 pt-6 pl-[20%] text-[15px]'>
+            <NavLink className='flex items-center gap-3 border border-gray-400 border-r-0 px-3 py-2 rounded-l' to="/">
+                <svg className='w-5 h-5' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7m-9 13V9m0 11h6a2 2 0 002-2v-7m-8 9H7a2 2 0 01-2-2v-5" />
+                </svg>
+                <p className='hidden md:block'>DASHBOARD</p>
+            </NavLink>
             <NavLink className='flex items-center gap-3 border border-gray-400 border-r-0 px-3 py-2 rounded-l' to="/add">
                 <img className='w-5 h-5' src={assets.add_icon} alt="" />
                 <p className='hidden md:block'>THÊM SẢN PHẨM</p>

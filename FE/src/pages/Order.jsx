@@ -5,7 +5,7 @@ import axios from 'axios';
 
 const Order = () => {
   const { backendUrl, token, formatCurrency } = useContext(ShopContext);
-  const [orderData, setorderData] = useState([]);
+  const [orders, setOrders] = useState([]);
 
   const loadOrderData = async () => {
     try {
@@ -14,17 +14,9 @@ const Order = () => {
       }
       const response = await axios.post(backendUrl + '/api/order/userorders', {}, { headers: { token } });
       if (response.data.success) {
-        let allOrdersItem = [];
-        response.data.order.map((order) => {
-          order.items.map((item) => {
-            item['status'] = order.status;
-            item['payment'] = order.payment;
-            item['paymentMethod'] = order.paymentMethod;
-            item['date'] = order.date;
-            allOrdersItem.push(item);
-          });
-        });
-        setorderData(allOrdersItem.reverse());
+        // Keep original orders and sort by date desc
+        const sorted = [...response.data.order].sort((a, b) => (b.date || 0) - (a.date || 0));
+        setOrders(sorted);
       }
     } catch (error) {
       console.error(error);
@@ -41,29 +33,51 @@ const Order = () => {
       <div className='text-2xl'>
         <Title text2={'ĐƠN HÀNG CỦA TÔI'} />
       </div>
-      <div>
-        {orderData.map((item, index) => (
-          <div key={index} className='py-4 border-t border-b text-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-4'>
-            <div className='flex items-start gap-6 text-sm'>
-              <img className='w-16 sm:w-20' src={item.image[0]} alt="" />
-              <div>
-                <p className='sm:text-base font-medium'>{item.name}</p>
-                <div className='flex items-center gap-3 mt-1 text-base text-gray-700'>
-                  <p className='text-lg'>{formatCurrency(item.price)}</p>
-                  <p>Số Lượng: {item.quantity}</p>
-                  <p>Kích Cỡ: {item.size}</p>
-                </div>
-                <p className='mt-1'>Ngày: <span className='text-gray-400'>{new Date(item.date).toLocaleDateString()}</span></p>
-                <p className='mt-1'>Phương Thức Thanh Toán: <span className='text-gray-400'>{item.paymentMethod}</span></p>
-                <p className='mt-1'>Trạng Thái Thanh Toán: <span className='text-gray-400'>{item.payment ? 'Đã Thanh Toán' : 'Chưa Thanh Toán'}</span></p>
+      <div className='space-y-4'>
+        {orders.map((order, idx) => (
+          <div key={order._id || idx} className='border rounded-md overflow-hidden bg-white'>
+            {/* Order header */}
+            <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-3 bg-gray-50 border-b'>
+              <div className='flex flex-wrap items-center gap-3'>
+                <span className='text-sm text-gray-500'>Ngày:</span>
+                <span className='font-medium'>{new Date(order.date).toLocaleString('vi-VN')}</span>
+                {order._id && (
+                  <span className='text-xs text-gray-400'>• Mã đơn: {String(order._id).slice(-8).toUpperCase()}</span>
+                )}
+              </div>
+              <div className='flex items-center gap-3'>
+                <span className={`text-xs px-2 py-1 rounded ${order.payment ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                  {order.payment ? 'Đã Thanh Toán' : 'Chưa Thanh Toán'}
+                </span>
+                <span className='text-xs px-2 py-1 rounded bg-gray-100 text-gray-700'>{order.paymentMethod}</span>
+                <span className='text-sm font-semibold text-back'>{formatCurrency(order.amount)}</span>
               </div>
             </div>
-            <div className='md:w-1/2 flex justify-between'>
+
+            {/* Items list */}
+            <div className='divide-y'>
+              {order.items.map((item, i) => (
+                <div key={i} className='px-4 py-3 flex items-start gap-4'>
+                  <img className='w-16 h-16 object-cover rounded' src={item.image?.[0]} alt={item.name} />
+                  <div className='flex-1 min-w-0'>
+                    <p className='font-medium truncate'>{item.name}</p>
+                    <div className='mt-1 text-sm text-gray-600 flex flex-wrap gap-3'>
+                      <span>Giá: {formatCurrency(item.price)}</span>
+                      <span>Số lượng: {item.quantity}</span>
+                      {item.size && <span>Kích cỡ: {item.size}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Footer: status + actions */}
+            <div className='px-4 py-3 flex items-center justify-between bg-gray-50'>
               <div className='flex items-center gap-2'>
-                <p className='min-w-2 h-2 rounded-full bg-green-500'></p>
-                <p className='text-sm md:text-base'>{item.status}</p>
+                <span className='min-w-2 h-2 rounded-full bg-green-500'></span>
+                <span className='text-sm'>{order.status}</span>
               </div>
-              <button onClick={loadOrderData} className='border px-4 py-2 text-sm font-medium rounded-sm'>Theo Dõi Đơn Hàng</button>
+              <button onClick={loadOrderData} className='border px-4 py-2 text-sm font-medium rounded-sm'>Theo dõi đơn hàng</button>
             </div>
           </div>
         ))}

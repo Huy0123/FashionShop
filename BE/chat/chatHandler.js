@@ -1,17 +1,10 @@
 import chatModel from '../models/chatModel.js';
-import productModel from '../models/productModel.js';
-import { isImageConfirmation, getConversationContext } from './conversationContext.js';
 
 // 🤖 GEMINI AI ONLY - Simplified and Clean
-import { generateGeminiAI, shouldGeminiRespond } from './aiServiceGemini.js';
-
-console.log('🤖 AI Engine: Gemini AI');
+import { generateGeminiAI } from './aiServiceGemini.js';
 
 // Track online admins
 let onlineAdmins = new Set();
-
-// Lưu sản phẩm gợi ý cuối cùng cho từng room
-let lastSuggestedProductByRoom = {};
 
 // Initialize chat handlers
 export function initializeChatHandlers(io) {
@@ -30,7 +23,6 @@ export function initializeChatHandlers(io) {
          socket.emit('admin_status_changed', {
             isOnline: onlineAdmins.size > 0
          });
-         console.log('Admin status checked:', onlineAdmins.size > 0);
       });
 
       // Send chat history when user connects  
@@ -87,10 +79,9 @@ export function initializeChatHandlers(io) {
                const cleanMessage = mentionedAI ? message.replace(/@ai\s*/gi, '').trim() : message;
                const aiModeText = mentionedAI ? ' (được gọi bằng @ai)' : '';
                
-               console.log(`Smart AI Check - Message: "${cleanMessage}", Online admins: ${onlineAdmins.size}, Mentioned AI: ${mentionedAI}`);
+               console.log(`👤 User: "${cleanMessage}" | 🤖 AI: Responding | 👨‍💼 Admins: ${onlineAdmins.size}${aiModeText}`);
                
                // Show AI typing indicator
-               console.log(`🤖 AI typing started for room: ${roomId}${aiModeText}`);
                io.to(roomId).emit('ai_typing_start');
                
                try {
@@ -101,8 +92,6 @@ export function initializeChatHandlers(io) {
                   let responseMessage = aiResponse.message || aiResponse;
                   let responseImage = aiResponse.image || null;
                   let aiProvider = 'Gemini AI';
-                  
-                  console.log(`${aiProvider} response generated - Message length: ${responseMessage.length}, Has image: ${!!responseImage}, Type: ${aiResponse.type || 'single'}`);
 
                   // Xử lý outfit với nhiều sản phẩm
                   if (aiResponse.type === 'outfit' && aiResponse.products) {
@@ -122,7 +111,6 @@ export function initializeChatHandlers(io) {
                         });
 
                         await aiMessage.save();
-                        console.log(`Emitting AI message ${i+1}:`, aiMessage.toObject());
                         io.to(roomId).emit('new_message', aiMessage.toObject());
                         
                         // Delay nhỏ giữa các message để tự nhiên hơn
@@ -147,45 +135,9 @@ export function initializeChatHandlers(io) {
                      }
                      
                      // QUAN TRỌNG: Stop typing indicator
-                     console.log(`🤖 AI typing stopped for room: ${roomId}`);
                      io.to(roomId).emit('ai_typing_stop');
                      
                      return; // Exit early, đã xử lý xong
-                  }
-
-                  // Tìm sản phẩm được gợi ý trong message AI
-                  let suggestedProduct = null;
-                  // Nhận diện "sản phẩm số X"
-                  const matchNum = responseMessage.match(/sản phẩm số\s*(\d+)/i);
-                  if (matchNum) {
-                     const index = parseInt(matchNum[1], 10) - 1;
-                     // Lấy danh sách sản phẩm từ DB, sort theo thứ tự xuất hiện
-                     const products = await productModel.find().sort({ date: 1 });
-                     if (products[index]) {
-                        suggestedProduct = {
-                           name: products[index].name,
-                           image: Array.isArray(products[index].image) ? products[index].image[0] : products[index].image
-                        };
-                     }
-                  } else {
-                     // Nhận diện tên sản phẩm trong message
-                     const productNames = await productModel.find().select('name image');
-                     for (const prod of productNames) {
-                        if (responseMessage.toLowerCase().includes(prod.name.toLowerCase())) {
-                           suggestedProduct = {
-                              name: prod.name,
-                              image: Array.isArray(prod.image) ? prod.image[0] : prod.image
-                           };
-                           break;
-                        }
-                     }
-                  }
-
-                  // Nếu có sản phẩm gợi ý, lưu lại cho room
-                  if (suggestedProduct && suggestedProduct.image) {
-                     lastSuggestedProductByRoom[roomId] = suggestedProduct;
-                  } else {
-                     lastSuggestedProductByRoom[roomId] = null;
                   }
 
                   // Save AI response to database
@@ -221,7 +173,7 @@ export function initializeChatHandlers(io) {
                         timestamp: aiMessage.timestamp
                      };
 
-                     console.log('Emitting AI message:', aiMessageToEmit);
+                     console.log(`🤖 AI: "${responseMessage.slice(0, 100)}${responseMessage.length > 100 ? '...' : ''}"`);
                      io.to(roomId).emit('receive_message', aiMessageToEmit);
                      io.to('admin-room').emit('receive_message', aiMessageToEmit);
                   }, Math.random() * 2000 + 1500); // Random delay 1.5-3.5s for more natural feel
@@ -259,8 +211,6 @@ export function initializeChatHandlers(io) {
                   }, 2000); // 2 second delay for fallback
                }
             }
-            
-            // Use the conversation context system for image confirmations instead of legacy system
 
          } catch (error) {
             console.error('Error handling message:', error);
@@ -323,7 +273,6 @@ export function initializeChatHandlers(io) {
 
       // Handle admin typing
       socket.on('admin_typing', (data) => {
-         console.log('Admin typing event:', data);
          // Send to all users in the room (not just broadcast)
          io.to(data.roomId).emit('admin_typing', {
             isTyping: data.isTyping
@@ -333,13 +282,11 @@ export function initializeChatHandlers(io) {
       // Handle admin joining specific room
       socket.on('admin_join_room', (roomId) => {
          socket.join(roomId);
-         console.log('Admin joined room:', roomId);
       });
 
       // Handle admin leaving specific room
       socket.on('admin_leave_room', (roomId) => {
          socket.leave(roomId);
-         console.log('Admin left room:', roomId);
       });
 
       // Handle read receipts

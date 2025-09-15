@@ -3,6 +3,44 @@ import productModel from "../models/productModel.js"
 import { Client, handle_file } from "@gradio/client"
 import sharp from 'sharp'
 import fs from 'fs/promises'
+
+// cập nhật sản phẩm
+const updateProduct = async (req, res) => {
+    try {
+        const { id, name, description, price, productType, sizes, bestseller } = req.body;
+        const image1 = req.files?.image1?.[0];
+        const image2 = req.files?.image2?.[0];
+        const image3 = req.files?.image3?.[0];
+        const image4 = req.files?.image4?.[0];
+        let imagesUrl = [];
+        if (image1 || image2 || image3 || image4) {
+            const image = [image1, image2, image3, image4].filter((item) => item !== undefined);
+            imagesUrl = await Promise.all(
+                image.map(async (item) => {
+                    let result = await cloudinary.uploader.upload(item.path, { resource_type: 'image' }).catch((err) => console.log('Cloudinary error:', err));
+                    return result.secure_url
+                })
+            );
+        }
+        const updateData = {
+            name,
+            description,
+            productType,
+            price: Number(price),
+            sizes: JSON.parse(sizes),
+            bestseller: bestseller === "true" ? true : false,
+        };
+        if (imagesUrl.length > 0) {
+            updateData.image = imagesUrl;
+        }
+        await productModel.findByIdAndUpdate(id, updateData);
+        res.json({ success: true, message: "Cập nhật sản phẩm thành công" });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: "Cập nhật thất bại" });
+    }
+};
+
 //thêm sản phẩm
 const addProduct = async (req, res) => {
     try {
@@ -98,12 +136,12 @@ const tryOnClothes = async (req, res) => {
 
         const result = await app.predict("/tryon", [
             { background: personBuffer, layers: [], composite: null },
-            clothBuffer, 
+            clothBuffer,
             "Hello!!",
             true,
-            true, 
-            20, 
-            1 
+            true,
+            20,
+            1
         ]);
 
         return res.json({ success: true, data: result.data[0].url });
@@ -130,6 +168,7 @@ async function toPngRgbBuffer(
         pipe = pipe.flatten({ background: bg });
     } else if (meta.channels && meta.channels < 3) {
         // Nếu ảnh grayscale (1 channel) hoặc <3 → convert sang RGB
+
         pipe = pipe.ensureAlpha().removeAlpha(); // ép đủ 3 channel RGB
     }
 
@@ -142,4 +181,4 @@ async function toPngRgbBuffer(
     return out;
 }
 
-export { addProduct, listProducts, removeProduct, singleProduct, tryOnClothes, toPngRgbBuffer }
+export { addProduct, listProducts, removeProduct, singleProduct, tryOnClothes, toPngRgbBuffer, updateProduct }

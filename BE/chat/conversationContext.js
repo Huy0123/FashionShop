@@ -1,6 +1,6 @@
 /**
- * Shared Conversation Context Management
- * Helps both Gemini AI and Custom AI understand conversation flow
+ * Conversation Context Management for Gemini AI
+ * Manages conversation flow and product context
  */
 
 // Store conversation contexts by roomId
@@ -17,8 +17,6 @@ export function setConversationContext(roomId, context) {
       timestamp: new Date(),
       ttl: Date.now() + (10 * 60 * 1000) // 10 minutes TTL
    };
-
-   console.log(`💭 Context stored for ${roomId}:`, context);
 }
 
 /**
@@ -61,11 +59,10 @@ export function updateConversationContext(roomId, updates) {
 export function clearConversationContext(roomId) {
    if (!roomId) return;
    delete conversationContexts[roomId];
-   console.log(`🗑️ Context cleared for ${roomId}`);
 }
 
 /**
- * Check if user is asking for image confirmation - IMPROVED
+ * Check if user is asking for image confirmation
  */
 export function isImageConfirmation(message, roomId) {
    const context = getConversationContext(roomId);
@@ -74,14 +71,12 @@ export function isImageConfirmation(message, roomId) {
    // DON'T treat as confirmation if user is asking for different product type
    const hasSpecificProductType = /(hoodie|sweater|jogger|t-shirt|áo thun|quần|ringer|relaxed)/i.test(message);
    if (hasSpecificProductType) {
-      console.log(`🔍 User asking for specific product type, not treating as confirmation`);
       return false;
    }
 
    // DON'T treat as confirmation if user is asking about sizing, fit, or measurements
    const isSizeInquiry = /(cân\s*nặng|kg|size|vừa|không|fit|lớn|nhỏ|rộng|chật|mặc.*có|đi.*được|phù\s*hợp|fit.*không)/i.test(message);
    if (isSizeInquiry) {
-      console.log(`📏 User asking about size/fit, not treating as image confirmation`);
       return false;
    }
 
@@ -92,13 +87,11 @@ export function isImageConfirmation(message, roomId) {
    const recentlyMentionedProduct = (context.lastAction === 'asked_for_image' || context.lastAction === 'mentioned_product') &&
       (Date.now() - new Date(context.timestamp).getTime()) < 5 * 60 * 1000; // 5 minutes
 
-   console.log(`🔍 Image confirmation check: isConfirmation=${isConfirmation}, recentlyMentioned=${recentlyMentionedProduct}, sizeInquiry=${isSizeInquiry}, context=${JSON.stringify(context)}`);
-
    return isConfirmation && recentlyMentionedProduct && !isSizeInquiry;
 }
 
 /**
- * Get last mentioned product for confirmations - IMPROVED
+ * Get last mentioned product for confirmations
  */
 export function getLastMentionedProduct(roomId) {
    const context = getConversationContext(roomId);
@@ -113,13 +106,11 @@ export function getLastMentionedProduct(roomId) {
          const shirtTypes = ['T-shirt', 'RelaxedFit', 'Ringer', 'Hoodie', 'Sweater'];
          const shirtProduct = context.lastProducts.find(p => shirtTypes.includes(p.productType));
          if (shirtProduct) {
-            console.log(`👕 Returning shirt product for confirmation: ${shirtProduct.name}`);
             return shirtProduct;
          }
       } else if (isPantsQuery) {
          const pantsProduct = context.lastProducts.find(p => p.productType === 'Jogger');
          if (pantsProduct) {
-            console.log(`👖 Returning pants product for confirmation: ${pantsProduct.name}`);
             return pantsProduct;
          }
       }

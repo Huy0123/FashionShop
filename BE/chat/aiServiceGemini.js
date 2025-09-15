@@ -8,11 +8,11 @@ dotenv.config();
 const productContextCache = {};
 
 // Khởi tạo Gemini AI (FREE 15 requests/minute - 1500 requests/day)
-let genAI = null;
+let gemini = null;
 try {
    const apiKey = process.env.GEMINI_API_KEY?.trim();
    if (apiKey && apiKey.length > 10) {
-      genAI = new GoogleGenerativeAI(apiKey);
+      gemini = new GoogleGenerativeAI(apiKey);
       console.log('✅ Gemini AI initialized successfully');
    } else {
       console.log('⚠️ Gemini API key not found or invalid');
@@ -28,8 +28,6 @@ try {
  */
 async function findProductsForGemini(message) {
    try {
-      console.log(`🔍 Dynamic product search for: "${message}"`);
-      
       const searchQuery = message.toLowerCase();
       let products = [];
       let query = {};
@@ -49,8 +47,6 @@ async function findProductsForGemini(message) {
             products = await Product.find(query)
                .sort({ bestseller: -1, date: -1 })
                .limit(20); // Increased limit for better coverage
-            
-            console.log(`🎯 Name search found ${products.length} products with pattern: ${namePattern}`);
          }
       }
 
@@ -58,7 +54,6 @@ async function findProductsForGemini(message) {
       if (products.length === 0) {
          // Get all unique product types dynamically from database
          const productTypes = await Product.distinct('productType');
-         console.log(`� Available product types: ${productTypes.join(', ')}`);
          
          // Map user queries to product types
          const typeMapping = {
@@ -77,7 +72,6 @@ async function findProductsForGemini(message) {
                products = await Product.find(query)
                   .sort({ bestseller: -1, date: -1 })
                   .limit(15);
-               console.log(`🏷️ Type search found ${products.length} products for types: ${types.join(', ')}`);
                break;
             }
          }
@@ -87,8 +81,6 @@ async function findProductsForGemini(message) {
       const isSetQuery = /(set|bộ|combo|outfit|phối|kết hợp|gợi ý.*đồ|cafe|chơi|đi|dự|tiệc)/i.test(message);
       
       if (isSetQuery || products.length === 0) {
-         console.log('🎯 SET/General query - Loading diverse product selection...');
-         
          // Get all product types dynamically
          const allProductTypes = await Product.distinct('productType');
          
@@ -102,9 +94,6 @@ async function findProductsForGemini(message) {
             type.toLowerCase().includes('pants')
          );
 
-         console.log(`👔 Shirt types: ${shirtTypes.join(', ')}`);
-         console.log(`👖 Pants types: ${pantsTypes.join(', ')}`);
-
          // Get diverse products for comprehensive recommendations
          const shirtProducts = shirtTypes.length > 0 ? await Product.find({ 
             productType: { $in: shirtTypes } 
@@ -115,13 +104,10 @@ async function findProductsForGemini(message) {
          }).sort({ bestseller: -1, date: -1 }).limit(5) : [];
          
          products = [...shirtProducts, ...pantsProducts];
-         console.log(`�️ Dynamic SET search: ${shirtProducts.length} shirts + ${pantsProducts.length} pants = ${products.length} total`);
       }
 
       // 4. FALLBACK - Lấy sản phẩm đa dạng từ toàn bộ database
       if (products.length === 0) {
-         console.log('🔄 Fallback - Loading recent and popular products...');
-         
          // Get recent products and bestsellers
          const recentProducts = await Product.find({})
             .sort({ date: -1 })
@@ -138,26 +124,11 @@ async function findProductsForGemini(message) {
          );
          
          products = uniqueProducts.slice(0, 15);
-         console.log(`🌟 Fallback loaded ${products.length} diverse products (recent + bestsellers)`);
-      }
-
-      // 5. FINAL PROCESSING - Log and return
-      console.log(`📦 Final result: ${products.length} products for Gemini processing`);
-      
-      if (products.length > 0) {
-         const productSummary = products.map(p => ({
-            name: p.name.substring(0, 25) + '...',
-            type: p.productType,
-            price: p.price,
-            bestseller: p.bestseller
-         }));
-         console.log(`🏷️ Product summary:`, productSummary);
       }
       
       return products;
       
    } catch (error) {
-      console.error('❌ Error in dynamic product search:', error);
       return [];
    }
 }
@@ -167,8 +138,7 @@ async function findProductsForGemini(message) {
  */
 export async function generateGeminiAI(message, roomId = null) {
    try {
-      console.log(`🤖 Gemini AI Processing: "${message}"`);
-      console.log(`🔍 genAI status: ${genAI ? 'Initialized' : 'NULL - Using fallback'}`);
+      console.log(`👤 User: "${message}"`);
       
       // Check if user is asking for specific product type
       const hasSpecificProductType = /(hoodie|sweater|jogger|t-shirt|áo thun|quần|ringer|relaxed)/i.test(message);
@@ -194,7 +164,6 @@ export async function generateGeminiAI(message, roomId = null) {
          const isSpecificProductRequest = /\b(xem|cho|tôi|muốn)\s+(xem\s+)?(áo|quần|sản\s*phẩm)\s+[\wÀ-ỹ\s]{3,}/i.test(message);
          
          if (isSpecificProductRequest) {
-            console.log(`🎯 User requesting specific product, skipping image confirmation logic`);
             // Don't process as image confirmation, let it fall through to main AI processing
          } else {
             // Check if user originally asked for a SET (áo + quần)
@@ -214,14 +183,9 @@ export async function generateGeminiAI(message, roomId = null) {
                
                const pantsProduct = context.lastProducts.find(p => pantsTypes.includes(p.productType));
                
-               console.log(`🔄 SET Confirmation - Using stored products:`);
-               console.log(`   👕 Shirt from context: ${shirtProduct?.name}`);
-               console.log(`   👖 Pants from context: ${pantsProduct?.name || 'NOT FOUND'}`);
-               
                if (shirtProduct && pantsProduct && shirtProduct.image?.length > 0) {
                   const shirtPrice = Math.round(shirtProduct.price / 1000) + 'k';
                   const pantsPrice = Math.round(pantsProduct.price / 1000) + 'k';
-                  console.log(`👔👖 Showing SET with SHIRT image: ${shirtProduct.name} + ${pantsProduct.name}`);
                   
                   // Update context to track SET state
                   setConversationContext(roomId, {
@@ -243,7 +207,6 @@ export async function generateGeminiAI(message, roomId = null) {
                const pantsProduct = context.pantsToShow;
                if (pantsProduct.image?.length > 0) {
                   const pantsPrice = Math.round(pantsProduct.price / 1000) + 'k';
-                  console.log(`👖 Showing PANTS image in SET: ${pantsProduct.name}`);
                   
                   // Clear set state
                   setConversationContext(roomId, {
@@ -264,7 +227,6 @@ export async function generateGeminiAI(message, roomId = null) {
             const lastProduct = getLastMentionedProduct(roomId);
             if (lastProduct && lastProduct.image && lastProduct.image.length > 0 && !isSpecificProductRequest) {
                const price = Math.round(lastProduct.price / 1000) + 'k';
-               console.log(`📸 Showing single product image: ${lastProduct.name}`);
                return {
                   message: `Dạ! Đây là ảnh sản phẩm ạ! 😍\n\n📸 **${lastProduct.name}**\n💰 Giá: ${price}\n📏 Size: ${lastProduct.sizes?.join(', ') || 'S, M, L'}\n🎯 ${lastProduct.productType}\n\nBạn thích không? 🥰`,
                   image: lastProduct.image[0]
@@ -272,24 +234,23 @@ export async function generateGeminiAI(message, roomId = null) {
             }
          }
       }
-
-      if (!genAI) {
-         // Fallback đơn giản khi không có Gemini
-         console.log('⚠️ Using fallback response - Gemini not initialized');
-         return "Xin chào! 👋 Chevai Fashion có đa dạng sản phẩm: T-shirt, Hoodie, Sweater, Jogger và nhiều loại khác! Bạn muốn xem gì? 😊";
-      }
       
-      console.log(`🚀 Using real Gemini AI for: "${message}"`);
+      // Handle simple greeting without product search
+      const isSimpleGreeting = /^(chào|hello|hi|xin chào|hey)$/i.test(message.trim());
+      
+      if (isSimpleGreeting) {
+         console.log(`🤖 AI: "Xin chào! Bạn muốn tìm sản phẩm gì ạ?"`);
+         return "Xin chào! 👋 Chevai Fashion rất vui được hỗ trợ bạn! Bạn muốn tìm sản phẩm gì ạ? 😊";
+      }
       
       // Find products for context
       const contextProducts = await findProductsForGemini(message);
-      console.log(`🛍️ Found ${contextProducts.length} products for Gemini`);
       
-      // Create product context ngắn gọn với links
+      // Create product context with ID info for AI to build links
       let productContext = contextProducts.length > 0
          ? contextProducts.map((p, index) => {
             const price = Math.round(p.price / 1000) + 'k';
-            return `${index + 1}. **${p.name}** [🔗](/product/${p._id}) - ${price}`;
+            return `${index + 1}. Tên: "${p.name}" | ID: ${p._id} | Giá: ${price}`;
          }).join('\n')
          : 'Không có sản phẩm cụ thể.';
 
@@ -299,49 +260,62 @@ export async function generateGeminiAI(message, roomId = null) {
       }
 
       // Use Gemini AI model
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      console.log('🎯 Using Gemini Fashion Consultant: gemini-1.5-flash');
+      const model = gemini.getGenerativeModel({ model: "gemini-1.5-flash" });
       
-      // Analyze user intent
-      const isShirtQuery = /(áo(?!\s*khoác)|shirt|tshirt|t-shirt|hoodie|sweater|ringer|relaxed)/i.test(message);
-      const isPantsQuery = /(quần|pants|jogger|jean)/i.test(message);
-      const isGeneralProductQuery = /(có.*gì|sản\s*phẩm.*gì|shop.*có|hàng.*có|bán.*gì)/i.test(message) && !isShirtQuery && !isPantsQuery;
-      const isShirtListQuery = /(có.*áo|áo.*khác|áo.*gì|loại.*áo|shirt.*available)/i.test(message);
-      const isPantsListQuery = /(có.*quần|quần.*khác|quần.*gì|loại.*quần|pants.*available)/i.test(message);
-      const isPaymentQuery = /(thanh\s*toán|payment|phương\s*thức|hình\s*thức|trả\s*tiền|vnpay|cod|online|có.*thanh.*toán.*gì|thanh.*toán.*gì|trả.*tiền.*gì)/i.test(message);
-      
-      const queryType = isPaymentQuery ? "thanh toán" :
-                       isShirtListQuery || (isShirtQuery && /(có.*gì|gì)/i.test(message)) ? "danh sách áo" :
-                       isPantsListQuery || (isPantsQuery && /(có.*gì|gì)/i.test(message)) ? "danh sách quần" :
-                       isGeneralProductQuery ? "tổng quan sản phẩm" : 
-                       isShirtQuery ? "áo/shirt" : 
-                       isPantsQuery ? "quần/pants" : "general";
-      
-      console.log(`🔍 Query analysis: message="${message}", queryType="${queryType}", isPaymentQuery=${isPaymentQuery}`);
+      // Detect greeting vs product inquiry
+      const isGreeting = /^(chào|hello|hi|xin chào|hey)$/i.test(message.trim());
       
       const prompt = `Bạn là tư vấn viên Chevai Fashion 👗
 
 **KHÁCH YÊU CẦU**: "${message}"
 
-**SẢN PHẨM CÓ SẴN**: 
+**SẢN PHẨM CÓ SẴN TRONG KHO**: 
 ${productContext}
 
-**YÊU CẦU QUAN TRỌNG**:
-- Trả lời ngắn gọn (100-150 từ)
-- Chỉ tư vấn sản phẩm có trong danh sách trên
-- PHẢI COPY CHÍNH XÁC tên sản phẩm và link từ danh sách
-- VÍ DỤ: Nếu danh sách có "**Áo ABC** [🔗](/product/123)" thì phải viết y hệt "**Áo ABC** [🔗](/product/123)"
-- TUYỆT ĐỐI KHÔNG tự tạo link khác
-- Không nhắc đến ảnh
+**QUY TẮC BẮT BUỘC**:
+${isGreeting ? '- Chỉ chào hỏi đơn giản, hỏi khách muốn tìm gì (không liệt kê sản phẩm)' : '- Trả lời ngắn gọn (100-150 từ)'}
 
-${/(cho.*xem|xem.*áo|xem.*quần|show.*me|muốn.*xem)/i.test(message) ? 'Khách muốn XEM - giới thiệu ngắn gọn.' : ''}
-${/(set|bộ|combo|outfit|phối)/i.test(message) ? 'Tư vấn SET ÁO + QUẦN từ danh sách, COPY CHÍNH XÁC links.' : ''}
+🚨 **TUYỆT ĐỐI TUÂN THỦ**:
+1. CHỈ được giới thiệu sản phẩm CÓ TRONG DANH SÁCH TRÊN
+2. KHÔNG được tự tạo tên sản phẩm hay ID bất kỳ  
+3. LUÔN dùng đúng ID từ danh sách, không được sửa đổi
+4. Nếu không có sản phẩm phù hợp trong danh sách → nói "Hiện tại chưa có sản phẩm phù hợp"
 
-Trả lời:`;
+✅ **VÍ DỤ ĐÚNG**: 
+Nếu danh sách có: "1. Tên: 'Áo Thun Basic' | ID: 507f1f77bcf86cd799439011 | Giá: 150k"
+Thì viết: **Áo Thun Basic** [🔗](/product/507f1f77bcf86cd799439011)
+
+❌ **TUYỆT ĐỐI CẤM**:
+- Tự sáng tạo ID khác với danh sách
+- Sửa đổi tên hoặc ID từ danh sách
+- Tạo link cho sản phẩm không có trong danh sách
+
+${/(cho.*xem|xem.*áo|xem.*quần|show.*me|muốn.*xem)/i.test(message) ? '\n🎯 Khách muốn XEM sản phẩm - chọn từ danh sách có sẵn.' : ''}
+${/(set|bộ|combo|outfit|phối)/i.test(message) ? '\n🎯 Tư vấn SET từ danh sách - 1 áo + 1 quần có sẵn.' : ''}
+
+Trả lời (chỉ dùng sản phẩm có trong danh sách):`;
 
       const result = await model.generateContent(prompt);
-      const response = result.response.text();
-      console.log(`🤖 Gemini response: ${response.length} chars`);
+      let response = result.response.text();
+      
+      // VALIDATION: Check if AI created fake product links (silent validation)
+      const linkMatches = response.match(/\[🔗\]\(\/product\/([^)]+)\)/g);
+      if (linkMatches && contextProducts.length > 0) {
+         const validIds = contextProducts.map(p => p._id.toString());
+         
+         linkMatches.forEach(link => {
+            const idMatch = link.match(/\/product\/([^)]+)/);
+            if (idMatch) {
+               const linkId = idMatch[1];
+               if (!validIds.includes(linkId)) {
+                  // Silent fix: Replace fake link with warning message
+                  response = response.replace(link, '[❌ Sản phẩm không có sẵn]');
+               }
+            }
+         });
+      }
+      
+      console.log(`🤖 AI: ${response}`);
 
       // Store conversation context for SET queries - ENHANCED
       const isAskingForImage = /(muốn xem ảnh|có muốn xem|xem ảnh không|want to see|see image|ảnh của sản phẩm|ảnh không|cho.*xem)/i.test(response);
@@ -397,21 +371,14 @@ Trả lời:`;
                
                productToStore = selectedShirtProduct || contextProducts[0];
                
-               console.log(`👔👖 Dynamic SET context with CONSISTENCY CHECK:`);
-               console.log(`   📝 AI Response mentioned: ${selectedShirtProduct ? 'Found matching shirt' : 'Using fallback shirt'}`);
-               console.log(`   👕 Selected Shirt: ${productToStore?.name}`);
-               console.log(`   👖 Pants: ${pantsProduct?.name || 'NOT FOUND'}`);
-               
                // If no pants found in context, dynamically find from database
                if (!pantsProduct && selectedShirtProduct && pantsTypes.length > 0) {
-                  console.log('🔍 No pants in context, searching database dynamically...');
                   const extraPants = await Product.find({ 
                      productType: { $in: pantsTypes } 
                   }).sort({ bestseller: -1 }).limit(1);
                   
                   if (extraPants.length > 0) {
                      contextProducts.push(extraPants[0]);
-                     console.log(`➕ Added pants to context: ${extraPants[0].name} (${extraPants[0].productType})`);
                   }
                }
             } else if (isSpecificProductRequest) {
@@ -497,15 +464,13 @@ Trả lời:`;
                isSetQuery: isSetQuery, // Flag for SET queries
                aiProvider: 'Gemini'
             });
-            console.log(`💭 Stored context - ${isSetQuery ? 'SET' : isSpecificProductRequest ? 'SPECIFIC' : 'single'} ${isAskingForImage ? 'asking for image' : 'mentioned product'}: ${productToStore.name}`);
             
             // AUTO-SHOW IMAGE: If user explicitly asks to see a product, show image immediately
             if (isExplicitImageRequest && productToStore.image && productToStore.image.length > 0) {
                const price = Math.round(productToStore.price / 1000) + 'k';
-               console.log(`🖼️ Auto-showing image for explicit request: ${productToStore.name}`);
                
                return {
-                  message: `Dạ! Đây là ảnh sản phẩm bạn yêu cầu ạ! 😍\n\n📸 **${productToStore.name}**\n💰 Giá: ${price}\n📏 Size: ${productToStore.sizes?.join(', ') || 'S, M, L'}\n🎯 ${productToStore.productType}\n\n[**XEM SẢN PHẨM**](/product/${productToStore._id})\n\nSản phẩm này rất đẹp! Bạn thích không? 🥰`,
+                  message: `Dạ! Đây là ảnh sản phẩm bạn yêu cầu ạ! 😍\n\n📸 **${productToStore.name}**\n💰 Giá: ${price}\n📏 Size: ${productToStore.sizes?.join(', ') || 'S, M, L'}\n🎯 ${productToStore.productType}\n\n[XEM SẢN PHẨM](/product/${productToStore._id})\n\nSản phẩm này rất đẹp! Bạn thích không? 🥰`,
                   image: productToStore.image[0]
                };
             }
@@ -513,15 +478,11 @@ Trả lời:`;
       }
 
       // Return text-only response
-      console.log(`📝 Returning text-only response (${contextProducts.length > 0 ? 'product found but no image needed' : 'no matching product'})`);
       return response;
 
    } catch (error) {
-      console.error('🚨 Gemini AI Error:', error);
-
       // If it's a 503 Service Unavailable or rate limit error, throw it so hybrid can fallback to custom AI
       if (error.status === 503 || error.status === 429 || error.message?.includes('overloaded') || error.message?.includes('quota')) {
-         console.log('🔄 Gemini overloaded/quota exceeded - throwing error for hybrid fallback');
          throw error;
       }
 
@@ -537,44 +498,4 @@ Trả lời:`;
    }
 }
 
-/**
- * Kiểm tra có nên dùng Gemini không - CẢI TIẾN
- */
-export function shouldGeminiRespond(message) {
-   const trimmed = message.trim();
-   
-   // Quá ngắn hoặc chỉ có ký tự đặc biệt
-   if (trimmed.length < 2 || /^[\d\s\-_.,!?]*$/i.test(trimmed)) {
-      return false;
-   }
-   
-   // Chỉ emoji hoặc sticker
-   if (/^[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+$/u.test(trimmed)) {
-      return false;
-   }
-   
-   // Tin nhắn admin only
-   if (/(admin\s+only|private\s+message)/i.test(trimmed)) {
-      return false;
-   }
-   
-   // Có từ khóa thời trang hoặc câu hỏi hợp lệ hoặc yêu cầu xem hình
-   const fashionKeywords = /(áo|quần|thời trang|fashion|clothes|shirt|pants|hoodie|sweater|jogger|tshirt|ringer|relaxed)/i;
-   const validQuestion = /(gì|nào|sao|như|khi|có|bao|price|giá|size|màu|color)/i;
-   const greeting = /(chào|hello|hi|xin)/i;
-   const imageRequest = /(hình|ảnh|image|photo|pic|xem|show|cho.*xem|muốn.*xem|tôi.*xem|mình.*xem)/i;
-   
-   return fashionKeywords.test(trimmed) || validQuestion.test(trimmed) || greeting.test(trimmed) || imageRequest.test(trimmed);
-}
 
-/**
- * Stats về Gemini usage
- */
-export function getGeminiStats() {
-   return {
-      provider: 'Google Gemini',
-      cost: 'FREE',
-      limits: '15 requests/minute, 1500/day',
-      getApiKey: 'https://makersuite.google.com/app/apikey'
-   };
-}

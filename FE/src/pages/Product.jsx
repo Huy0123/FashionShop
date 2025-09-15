@@ -34,6 +34,7 @@ const Product = () => {
   const [userImagePreview, setUserImagePreview] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [tryOnResult, setTryOnResult] = useState(null)
+  const [showZoomedImage, setShowZoomedImage] = useState(false)
 
 
   const fetchProductData = async () => {
@@ -95,7 +96,6 @@ const Product = () => {
         hideProgressBar: false
       });
 
-
       // Tải ảnh sản phẩm từ URL và chuyển thành Blob
       const productImageResponse = await fetch(productData.image[0]);
       const productImageBlob = await productImageResponse.blob();
@@ -111,13 +111,11 @@ const Product = () => {
       });
 
       const result = await response.json();
-
       toast.dismiss(toastId);
-
       console.log('Try-on result:', result);
-
+      //Trả dãy json thành hình ảnh lên FE
       if (result.success) {
-        setTryOnResult(result.imageUrl);
+        setTryOnResult(result.data);
         toast.success(result.message || 'Try-on thành công!');
       } else {
         toast.error(result.message || 'Không thể thực hiện try-on');
@@ -138,6 +136,7 @@ const Product = () => {
     setUserImagePreview('');
     setTryOnResult(null);
     setIsLoading(false);
+    setShowZoomedImage(false);
   };
 
   return productData ? (
@@ -340,7 +339,9 @@ const Product = () => {
                           <img
                             src={tryOnResult}
                             alt="Try-on result"
-                            className='max-w-full max-h-full object-contain '
+                            className='max-w-full max-h-full object-contain cursor-pointer hover:opacity-80 transition-opacity'
+                            onClick={() => setShowZoomedImage(true)}
+                            title="Click để phóng to"
                           />
                         </div>
                       </div>
@@ -373,6 +374,31 @@ const Product = () => {
                 </ul>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Zoomed Image Modal */}
+      {showZoomedImage && tryOnResult && (
+        <div
+          className='fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4'
+          onClick={() => setShowZoomedImage(false)}
+        >
+          <div className='relative max-w-[95vw] max-h-[95vh] flex items-center justify-center'>
+            <img
+              src={tryOnResult}
+              alt="Try-on result zoomed"
+              className='max-w-full max-h-full object-contain'
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setShowZoomedImage(false)}
+              className='absolute top-4 right-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold transition-all'
+              title="Đóng"
+            >
+              ×
+            </button>
+
           </div>
         </div>
       )}
