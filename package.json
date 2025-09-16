@@ -8,7 +8,16 @@
     "build": "cd FE && npm run build && cd ../ADMIN && npm run build",
     "start": "cd BE && npm start"
   },
-  "keywords": ["ecommerce", "fashion", "react", "express", "mongodb"],
+  "keywords": [
+    "ecommerce",
+    "fashion",
+    "react",
+    "express",
+    "mongodb"
+  ],
   "author": "Chevai Fashion Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "nodemailer": "^7.0.6"
+  }
 }

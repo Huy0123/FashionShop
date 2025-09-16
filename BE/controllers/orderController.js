@@ -1,7 +1,7 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js"
 import { createVNPayUrl, verifyVNPayResponse } from "../config/vnpay.js";
-
+import { orderSuccessTemplate } from "../config/template.js";
 
 // đặt hàng theo pp trả tiền sau khi nhận
 const placeOrder = async (req, res) => {
@@ -151,10 +151,31 @@ const verifyVNPayPayment = async (req, res) => {
 
                 console.log('Updated order:', updatedOrder);
 
-                // Xóa giỏ hàng của user
-                await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
+                // Xóa giỏ hàng của user và lấy thông tin user
+                const user = await userModel.findByIdAndUpdate(
+                    order.userId,
+                    { cartData: {} },
+                    { new: true }
+                );
                 console.log('Cleared cart for user:', order.userId);
 
+                // Gửi email xác nhận đơn hàng
+                const emailHtml = orderSuccessTemplate({
+                    orderId: orderId,
+                    customerName: user.name,
+                    customerEmail: user.email,
+                    items: updatedOrder.items,
+                    totalAmount: updatedOrder.amount,
+                    shippingAddress: updatedOrder.address,
+                    paymentMethod: updatedOrder.paymentMethod,
+                    orderDate: updatedOrder.date
+                });
+
+                await mailController.sendEmail(
+                    user.email,
+                    'Xác nhận đơn hàng của bạn',
+                    emailHtml
+                );
                 res.json({
                     success: true,
                     message: 'Payment successful',
