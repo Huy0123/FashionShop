@@ -15,6 +15,7 @@ import Footer from './components/Footer'
 import SearchBar from './components/SearchBar'
 import ChatWidget from './components/ChatWidget'
 import { ToastContainer, toast } from 'react-toastify';
+import ProfilePage from './pages/Profile'
 
 const App = () => {
   return (
@@ -23,6 +24,7 @@ const App = () => {
       <Navbar />
       <SearchBar />
       <Routes>
+        <Route path='/profile' element={<ProfilePage />} />
         <Route path='/' element={<Home />} />
         <Route path='/collection' element={<Collection />} />
         <Route path='/about' element={<About />} />

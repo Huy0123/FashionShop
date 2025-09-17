@@ -104,4 +104,19 @@ const getUserProfile = async (req, res) => {
     }
 }
 
-export { loginUser, registerUser, adminLogin, getUserProfile }
+const updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.body.userId;
+        const { name, email } = req.body;
+        const user = await userModel.findByIdAndUpdate(userId, { name, email }, { new: true }).select('-password');
+        if (!user) {
+            return res.json({ success: false, message: "User not found" });
+        }
+        res.json({ success: true, user });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+}
+
+export { loginUser, registerUser, adminLogin, getUserProfile, updateUserProfile };
