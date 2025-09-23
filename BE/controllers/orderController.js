@@ -2,7 +2,7 @@ import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js"
 import { createVNPayUrl, verifyVNPayResponse } from "../config/vnpay.js";
 import { orderSuccessTemplate } from "../config/template.js";
-
+import { sendEmail } from './mailController.js'
 // đặt hàng theo pp trả tiền sau khi nhận
 const placeOrder = async (req, res) => {
     try {
@@ -171,7 +171,7 @@ const verifyVNPayPayment = async (req, res) => {
                     orderDate: updatedOrder.date
                 });
 
-                await mailController.sendEmail(
+                await sendEmail(
                     user.email,
                     'Xác nhận đơn hàng của bạn',
                     emailHtml
