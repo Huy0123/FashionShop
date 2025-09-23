@@ -149,8 +149,6 @@ const verifyVNPayPayment = async (req, res) => {
                     status: 'Đơn đã đặt'
                 }, { new: true });
 
-                console.log('Updated order:', updatedOrder);
-
                 // Xóa giỏ hàng của user và lấy thông tin user
                 const user = await userModel.findByIdAndUpdate(
                     order.userId,
@@ -158,24 +156,33 @@ const verifyVNPayPayment = async (req, res) => {
                     { new: true }
                 );
                 console.log('Cleared cart for user:', order.userId);
-                
-                // Gửi email xác nhận đơn hàng
-                const emailHtml = orderSuccessTemplate({
-                    orderId: orderId,
-                    customerName: user.name,
-                    customerEmail: user.email,
-                    items: updatedOrder.items,
-                    totalAmount: updatedOrder.amount,
-                    shippingAddress: updatedOrder.address,
-                    paymentMethod: updatedOrder.paymentMethod,
-                    orderDate: updatedOrder.date
-                });
+                try {
+                    const emailHtml = orderSuccessTemplate({
+                        orderId: orderId,
+                        customerName: user.name,
+                        customerEmail: user.email,
+                        items: updatedOrder.items,
+                        totalAmount: updatedOrder.amount,
+                        shippingAddress: updatedOrder.address,
+                        paymentMethod: updatedOrder.paymentMethod,
+                        orderDate: updatedOrder.date
+                    });
 
-                await sendEmail(
-                    user.email,
-                    'Xác nhận đơn hàng của bạn',
-                    emailHtml
-                );
+                    const emailResult = await sendEmail(
+                        user.email,
+                        'Xác nhận đơn hàng của bạn',
+                        emailHtml
+                    );
+
+                    if (emailResult.success) {
+                        console.log('Order confirmation email sent to:', user.email);
+                    } else {
+                        console.log('Failed to send order confirmation email:', emailResult.error);
+                    }
+                } catch (emailError) {
+                    console.error('Email sending error:', emailError);
+                }
+
                 res.json({
                     success: true,
                     message: 'Payment successful',
