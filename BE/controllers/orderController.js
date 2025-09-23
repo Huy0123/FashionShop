@@ -158,7 +158,7 @@ const verifyVNPayPayment = async (req, res) => {
                     { new: true }
                 );
                 console.log('Cleared cart for user:', order.userId);
-
+                
                 // Gửi email xác nhận đơn hàng
                 const emailHtml = orderSuccessTemplate({
                     orderId: orderId,

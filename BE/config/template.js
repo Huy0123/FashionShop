@@ -13,7 +13,7 @@ const orderSuccessTemplate = (orderData) => {
     const itemsHtml = items.map(item => `
         <tr>
             <td style="padding: 10px; border-bottom: 1px solid #eee;">
-                <img src="${item.image}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px;">
+                <img src="${item.image[0]}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 5px;">
             </td>
             <td style="padding: 10px; border-bottom: 1px solid #eee;">
                 <strong>${item.name}</strong><br>
@@ -74,9 +74,11 @@ const orderSuccessTemplate = (orderData) => {
 
                 <h3 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Địa chỉ giao hàng</h3>
                 <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-                    <p style="margin: 0; line-height: 1.6;">${shippingAddress.street}<br>
-                    ${shippingAddress.city}, ${shippingAddress.state}<br>
-                    ${shippingAddress.zipCode}</p>
+                    <p style="margin: 0; line-height: 1.6;">
+                        ${shippingAddress.homeNumber} ${shippingAddress.stress}<br>
+                        ${shippingAddress.ward}, ${shippingAddress.district}<br>
+                        ${shippingAddress.city}
+                    </p>
                 </div>
 
                 <!-- Order Items -->
@@ -107,7 +109,6 @@ const orderSuccessTemplate = (orderData) => {
                         <li>Chúng tôi sẽ xử lý đơn hàng trong vòng 24h</li>
                         <li>Bạn sẽ nhận được thông báo khi đơn hàng được giao cho đơn vị vận chuyển</li>
                         <li>Thời gian giao hàng dự kiến: 2-5 ngày làm việc</li>
-                        <li>Mọi thắc mắc vui lòng liên hệ hotline: <strong>1900-xxxx</strong></li>
                     </ul>
                 </div>
             </div>
