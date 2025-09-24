@@ -19,12 +19,7 @@ const ChatWidget = () => {
     const [isMinimized, setIsMinimized] = useState(false);
     const messagesEndRef = useRef(null);
 
-    // Debug log để kiểm tra isAdminOnline
-    useEffect(() => {
-        console.log('ChatWidget - isAdminOnline changed:', isAdminOnline);
-    }, [isAdminOnline]);
-
-    const scrollToBottom = () => {
+      const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
@@ -32,21 +27,19 @@ const ChatWidget = () => {
         scrollToBottom();
     }, [messages]);
 
-    // Auto scroll when typing status changes
     useEffect(() => {
         if (isTyping) {
             setTimeout(() => {
                 scrollToBottom();
-            }, 100); // Small delay to ensure typing indicator is rendered
+            }, 100); 
         }
     }, [isTyping]);
 
-    // Auto scroll when chat opens
     useEffect(() => {
         if (isChatOpen) {
             setTimeout(() => {
                 scrollToBottom();
-            }, 100); // Small delay to ensure DOM is rendered
+            }, 100); 
         }
     }, [isChatOpen]);
 
@@ -58,49 +51,44 @@ const ChatWidget = () => {
         }
     };
 
-    // Helper function to render message content with images
     const renderMessageContent = (message) => {
-        const text = message.message;
+        let text = message.message;
+        text = text.replace(
+            /\(ID:\s*([0-9a-fA-F]{24})\s*-\s*([^)]+)\)/g,
+            (_, id, price) => `([Xem sản phẩm](/product/${id})) - ${price}`
+        );
+        // Nếu chỉ có “ID: …” không có giá:
+        text = text.replace(
+            /ID:\s*([0-9a-fA-F]{24})/g,
+            (_, id) => `[Xem sản phẩm](/product/${id})`
+        );
 
-        // Helper function to highlight @ai tags
-        const highlightAiTags = (text) => {
-            return text.replace(/@ai/gi, '<span class="bg-purple-100 text-purple-700 px-1 rounded font-semibold">@ai</span>');
-        };
+        // Highlight @ai
+        const highlightAiTags = (txt) =>
+            txt.replace(
+                /@ai/gi,
+                '<span class="bg-purple-100 text-purple-700 px-1 rounded font-semibold">@ai</span>'
+            );
 
-        // Helper function to convert Markdown links to clickable HTML links
-        const convertMarkdownLinks = (text) => {
-            // Convert [**text**](/url) to <a href="/url"><strong>text</strong></a>
-            // This handles both [**XEM SẢN PHẨM**](/product/123) and [text](/url) formats
-            return text.replace(/\[\*\*(.*?)\*\*\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer transition-colors"><strong>$1</strong></a>')
-                      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer transition-colors">$1</a>');
-        };
+        // Convert markdown links sang <a>
+        const convertMarkdownLinks = (txt) =>
+            txt.replace(
 
-        // Process text: highlight @ai tags first, then convert markdown links
+                /\[\*\*(.*?)\*\*\]\(([^)]+)\)/g,
+                '<a href="$2" class="text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer transition-colors"><strong>$1</strong></a>'
+            )
+                .replace(
+                    /\[([^\]]+)\]\(([^)]+)\)/g,
+                    '<a href="$2" class="text-blue-600 hover:text-blue-800 font-semibold underline cursor-pointer transition-colors">$1</a>'
+                );
         const processedText = convertMarkdownLinks(highlightAiTags(text));
 
         return (
             <div>
-                {/* Render text content with highlighted @ai tags and clickable links */}
                 <span
                     className="whitespace-pre-wrap"
                     dangerouslySetInnerHTML={{ __html: processedText }}
                 />
-
-                {/* Render separate image if AI sent one */}
-                {message.image && (
-                    <div className="mt-3">
-                        <img
-                            src={message.image}
-                            alt="Product"
-                            className="w-full max-w-xs rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
-                            onClick={() => window.open(message.image, '_blank')}
-                            onError={(e) => {
-                                console.error('Failed to load image:', message.image);
-                                e.target.style.display = 'none';
-                            }}
-                        />
-                    </div>
-                )}
             </div>
         );
     };
@@ -138,7 +126,7 @@ const ChatWidget = () => {
                     {/* Welcome Message Bubble */}
                     <div className="absolute bottom-16 right-0 bg-white rounded-lg shadow-lg p-3 max-w-lg animate-bounce">
                         <div className="text-sm text-gray-700">
-                           Hi {userData?.name}👋
+                            Hi {userData?.name}👋
                         </div>
                         <div className="absolute bottom-0 right-4 transform translate-y-1/2 rotate-45 w-2 h-2 bg-white"></div>
                     </div>
@@ -158,7 +146,7 @@ const ChatWidget = () => {
                                 <h3 className="font-semibold">{isAdminOnline ? 'Chevai⚡' : 'Ai-chan✨'}</h3>
                                 <p className="text-xs opacity-90 flex items-center">
                                     <span className={`w-2 h-2 ${isAdminOnline ? 'bg-green-300 shadow-green-400 shadow-lg' : 'bg-yellow-300 shadow-yellow-400 shadow-md'} rounded-full mr-2 animate-pulse`}></span>
-                                    <span className="font-medium">{isAdminOnline ?'Đang hoạt động' : 'Trợ lý AI'}</span>
+                                    <span className="font-medium">{isAdminOnline ? 'Đang hoạt động' : 'Trợ lý AI'}</span>
 
                                 </p>
                             </div>

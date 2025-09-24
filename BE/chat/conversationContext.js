@@ -62,35 +62,6 @@ export function clearConversationContext(roomId) {
 }
 
 /**
- * Check if user is asking for image confirmation
- */
-export function isImageConfirmation(message, roomId) {
-   const context = getConversationContext(roomId);
-   if (!context) return false;
-
-   // DON'T treat as confirmation if user is asking for different product type
-   const hasSpecificProductType = /(hoodie|sweater|jogger|t-shirt|áo thun|quần|ringer|relaxed)/i.test(message);
-   if (hasSpecificProductType) {
-      return false;
-   }
-
-   // DON'T treat as confirmation if user is asking about sizing, fit, or measurements
-   const isSizeInquiry = /(cân\s*nặng|kg|size|vừa|không|fit|lớn|nhỏ|rộng|chật|mặc.*có|đi.*được|phù\s*hợp|fit.*không)/i.test(message);
-   if (isSizeInquiry) {
-      return false;
-   }
-
-   // More flexible confirmation patterns including explicit image requests
-   const isConfirmation = /^(có|ok|yes|được|đồng\s*ý|ừ|ừm|vâng)$/i.test(message.trim()) ||
-      /(có.*xem|xem.*ảnh|show.*image|muốn.*xem|cho.*xem|ảnh.*sản\s*phẩm|ảnh.*đó|cho.*mình.*xem.*ảnh|ảnh.*của.*sản.*phẩm)/i.test(message);
-
-   const recentlyMentionedProduct = (context.lastAction === 'asked_for_image' || context.lastAction === 'mentioned_product') &&
-      (Date.now() - new Date(context.timestamp).getTime()) < 5 * 60 * 1000; // 5 minutes
-
-   return isConfirmation && recentlyMentionedProduct && !isSizeInquiry;
-}
-
-/**
  * Get last mentioned product for confirmations
  */
 export function getLastMentionedProduct(roomId) {

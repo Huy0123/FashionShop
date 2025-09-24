@@ -57,13 +57,9 @@ const AdminChat = () => {
         e.preventDefault();
         if (!newMessage.trim() || !selectedRoom) return;
 
-        // Stop typing indicator when sending message
-        if (socket && selectedRoom) {
-            console.log('Admin sending message, stopping typing in room:', selectedRoom);
-            socket.emit('admin_typing', {
-                roomId: selectedRoom,
-                isTyping: false
-            });
+        // Stop typing indicator when sending
+        if (socket) {
+            socket.emit('admin_typing', { roomId: selectedRoom, isTyping: false });
         }
 
         const messageData = {
@@ -74,81 +70,54 @@ const AdminChat = () => {
             message: newMessage
         };
 
-        // Add message to UI immediately for instant feedback
+        // Add temp message to UI
         const tempMessage = {
             ...messageData,
             _id: 'temp-' + Date.now(),
             timestamp: new Date(),
             isTemp: true
         };
-
-        setMessages(prevMessages => [...prevMessages, tempMessage]);
+        setMessages(prev => [...prev, tempMessage]);
         const currentMessage = newMessage;
         setNewMessage('');
-
-        console.log('Admin sending message:', messageData);
-
         try {
-            // Send message via Socket.IO for immediate real-time delivery
-            if (socket) {
-                socket.emit('send_message', messageData);
-                console.log('Message emitted via socket');
-            }
+            socket?.emit('send_message', messageData);
         } catch (error) {
-            console.log(error);
             toast.error('Error sending message');
-            // Remove temp message on error and restore input
-            setMessages(prevMessages =>
-                prevMessages.filter(msg => msg._id !== tempMessage._id)
-            );
+            setMessages(prev => prev.filter(msg => msg._id !== tempMessage._id));
             setNewMessage(currentMessage);
         }
     };
-
-    // Handle typing indicator
     const handleTyping = (value) => {
         setNewMessage(value);
-
         if (!socket || !selectedRoom) return;
-
         // Clear previous timeout
         if (typingTimeoutRef.current) {
             clearTimeout(typingTimeoutRef.current);
         }
-
+        // Chỉ gửi sự kiện nếu có thay đổi về trạng thái gõ
         if (value.trim()) {
-            // Start typing
             if (!isTyping) {
                 setIsTyping(true);
-                socket.emit('admin_typing', {
-                    roomId: selectedRoom,
-                    isTyping: true
-                });
+                socket.emit('admin_typing', { roomId: selectedRoom, isTyping: true });
             }
 
-            // Stop typing after 5 seconds of no typing (instead of 1 second)
             typingTimeoutRef.current = setTimeout(() => {
                 setIsTyping(false);
-                socket.emit('admin_typing', {
-                    roomId: selectedRoom,
-                    isTyping: false
-                });
+                socket.emit('admin_typing', { roomId: selectedRoom, isTyping: false });
             }, 5000);
         } else {
-            // Stop typing immediately if input is empty
-            setIsTyping(false);
-            
-            socket.emit('admin_typing', {
-                roomId: selectedRoom,
-                isTyping: false
-            });
+            // Stop typing ngay lập tức khi input trống
+            if (isTyping) {
+                setIsTyping(false);
+                socket.emit('admin_typing', { roomId: selectedRoom, isTyping: false });
+            }
         }
     };
 
     const formatTime = (timestamp) => {
         return new Date(timestamp).toLocaleString('vi-VN');
     };
-
     const deleteChatRoom = async (roomId) => {
         if (!window.confirm('Bạn có chắc muốn xóa đoạn chat này? Hành động này không thể hoàn tác.')) {
             return;
@@ -173,27 +142,9 @@ const AdminChat = () => {
         }
     };
 
-    const deleteMessage = async (messageId) => {
-        if (!window.confirm('Bạn có chắc muốn xóa tin nhắn này?')) {
-            return;
-        }
 
-        try {
-            const response = await axios.delete(`${url}/api/chat/admin/message/${messageId}`, {
-                headers: { token: localStorage.getItem('token') }
-            });
 
-            if (response.data.success) {
-                toast.success('Đã xóa tin nhắn');
-                fetchMessages(selectedRoom);
-            }
-        } catch (error) {
-            console.log(error);
-            toast.error('Error deleting message');
-        }
-    };
 
-    // Cleanup typing timeout on component unmount or room change
     useEffect(() => {
         return () => {
             if (typingTimeoutRef.current) {
@@ -203,40 +154,22 @@ const AdminChat = () => {
     }, [selectedRoom]);
 
     useEffect(() => {
-        // Initialize socket connection
-        const newSocket = io(url, {
-            transports: ['websocket'],
-            upgrade: false
-        });
+        const newSocket = io(url, { transports: ['websocket'], upgrade: false });
         setSocket(newSocket);
 
-        // Register as admin immediately when socket connects
         newSocket.on('connect', () => {
-            console.log('Admin socket connected:', newSocket.id);
-
-            // Register as admin - this makes admin online
             newSocket.emit('admin_login', {
                 name: 'Admin',
                 role: 'admin',
                 timestamp: new Date(),
                 socketId: newSocket.id
             });
-
-            console.log('Admin registered as online');
         });
 
-        // Listen for connection status
-        newSocket.on('admin_status', (data) => {
-            console.log('Admin status confirmed:', data);
-        });
 
-        // Handle disconnection
-        newSocket.on('disconnect', () => {
-            console.log('Admin socket disconnected');
-        });
 
         fetchChatRooms();
-        const interval = setInterval(fetchChatRooms, 10000); // Refresh more frequently
+        const interval = setInterval(fetchChatRooms, 10000);
 
         return () => {
             clearInterval(interval);
@@ -244,40 +177,29 @@ const AdminChat = () => {
         };
     }, []);
 
+
     // Separate effect for socket message handling
     useEffect(() => {
         if (!socket) return;
 
         const handleReceiveMessage = (message) => {
-            console.log('Admin received message:', message, 'Current selectedRoom:', selectedRoom);
-
-            // ALWAYS refresh chat rooms when any message comes
             fetchChatRooms();
 
-            // If this room is currently selected, add message immediately
             if (selectedRoom && message.roomId === selectedRoom) {
-                console.log('Adding message to current room:', selectedRoom);
                 setMessages(prevMessages => {
-                    // Remove temp message if it exists
-                    const filteredMessages = prevMessages.filter(msg =>
-                        !msg.isTemp ||
-                        !(msg.message === message.message && msg.senderType === message.senderType)
+                    // Xoá temp message trùng
+                    const filtered = prevMessages.filter(
+                        msg => !msg.isTemp || !(msg.message === message.message && msg.senderType === message.senderType)
                     );
 
-                    // Check if message already exists
-                    const exists = filteredMessages.some(msg => msg._id === message._id);
-                    if (!exists) {
-                        console.log('Message added to UI');
-                        const newMessages = [...filteredMessages, message];
-                        // Auto scroll after a short delay to ensure DOM is updated
-                        setTimeout(scrollToBottom, 100);
-                        return newMessages;
-                    }
-                    console.log('Message already exists, skipping');
-                    return filteredMessages;
+                    // Nếu message đã tồn tại thì bỏ qua
+                    const exists = filtered.some(msg => msg._id === message._id);
+                    if (exists) return filtered;
+
+                    const updated = [...filtered, message];
+                    setTimeout(scrollToBottom, 100); // auto scroll
+                    return updated;
                 });
-            } else {
-                console.log('Message for different room:', message.roomId, 'current:', selectedRoom);
             }
         };
 
@@ -285,14 +207,13 @@ const AdminChat = () => {
             if (selectedRoom && message.roomId === selectedRoom) {
                 setMessages(prevMessages =>
                     prevMessages.map(msg =>
-                        msg.message === message.message &&
-                            msg.senderId === message.senderId ? message : msg
+                        msg.message === message.message && msg.senderId === message.senderId ? message : msg
                     )
                 );
             }
         };
 
-        const handleNewMessageNotification = (data) => {
+        const handleNewMessageNotification = () => {
             fetchChatRooms();
         };
 
@@ -305,26 +226,22 @@ const AdminChat = () => {
             socket.off('message_update', handleMessageUpdate);
             socket.off('new_message_notification', handleNewMessageNotification);
         };
-    }, [socket, selectedRoom]);
+    }, [socket, selectedRoom, fetchChatRooms, scrollToBottom]);
+
 
     useEffect(() => {
-        if (selectedRoom && socket) {
-            console.log('Selected room changed to:', selectedRoom);
-            fetchMessages(selectedRoom);
-
-            // Join the room as admin for real-time updates
-            socket.emit('admin_join_room', selectedRoom);
-            console.log('Admin joined room:', selectedRoom);
-
-            // Cleanup function to leave room when switching
-            return () => {
-                if (selectedRoom && socket) {
-                    socket.emit('admin_leave_room', selectedRoom);
-                    console.log('Admin left room:', selectedRoom);
-                }
-            };
-        }
+        // Nếu chưa có socket hoặc chưa chọn room thì thoát
+        if (!socket || !selectedRoom) return;
+        // Lấy tin nhắn
+        fetchMessages(selectedRoom);
+        // Join room khi selectedRoom thay đổi
+        socket.emit('admin_join_room', selectedRoom);
+        // Cleanup: leave room khi đổi room hoặc unmount
+        return () => {
+            socket.emit('admin_leave_room', selectedRoom);
+        };
     }, [selectedRoom, socket]);
+
 
     return (
         <div className="flex flex-col lg:flex-row h-screen lg:h-[600px] bg-white rounded-lg shadow-2xl overflow-hidden">
@@ -488,17 +405,6 @@ const AdminChat = () => {
                                                 {formatTime(message.timestamp)}
                                             </p>
                                         </div>
-
-                                        {/* Delete message button */}
-                                        <button
-                                            onClick={() => deleteMessage(message._id)}
-                                            className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg"
-                                            title="Xóa tin nhắn"
-                                        >
-                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
                                     </div>
                                 </div>
                             ))}
