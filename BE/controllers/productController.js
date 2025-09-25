@@ -3,6 +3,7 @@ import productModel from "../models/productModel.js"
 import { Client, handle_file } from "@gradio/client"
 import sharp from 'sharp'
 import fs from 'fs/promises'
+import { uploadTryOnResultToCloudinary } from './tryOnController.js'
 
 // cập nhật sản phẩm
 const updateProduct = async (req, res) => {
@@ -123,11 +124,13 @@ const singleProduct = async (req, res) => {
 //thử đồ
 const tryOnClothes = async (req, res) => {
     try {
+        const { userId, productId, productName, productPrice } = req.body;
         const person = req.files.people && req.files.people[0];
         const cloth = req.files.clothes && req.files.clothes[0];
 
         if (!person) return res.json({ success: false, message: 'Cần cung cấp ảnh người' });
         if (!cloth) return res.json({ success: false, message: 'Cần cung cấp ảnh quần áo' });
+        if (!userId) return res.json({ success: false, message: 'Cần cung cấp userId' });
 
         const personBuffer = await toPngRgbBuffer(person.path, 512);
         const clothBuffer = await toPngRgbBuffer(cloth.path, 512);
@@ -144,7 +147,44 @@ const tryOnClothes = async (req, res) => {
             1
         ]);
 
-        return res.json({ success: true, data: result.data[0].url });
+        // Upload kết quả lên Cloudinary và lưu vào DB
+        const aiResultUrl = result.data[0].url;
+
+        try {
+            const productInfo = {
+                productId: productId || null,
+                productName: productName || null,
+                productPrice: productPrice || null
+            };
+
+            const uploadResult = await uploadTryOnResultToCloudinary(aiResultUrl, userId, productInfo);
+
+            if (uploadResult.success) {
+                return res.json({
+                    success: true,
+                    data: {
+                        originalUrl: aiResultUrl,
+                        savedResult: uploadResult.data
+                    },
+                    message: 'Try-on completed and saved successfully'
+                });
+            } else {
+                console.error('Failed to upload to Cloudinary:', uploadResult.error);
+                return res.json({
+                    success: true,
+                    data: aiResultUrl,
+                    warning: 'Try-on completed but failed to save result'
+                });
+            }
+        } catch (saveError) {
+            console.error('Error saving try-on result:', saveError);
+            return res.json({
+                success: true,
+                data: aiResultUrl,
+                warning: 'Try-on completed but failed to save result'
+            });
+        }
+
     } catch (error) {
         console.error(error);
         return res.status(500).json({ success: false, message: error?.message || 'Server error' });

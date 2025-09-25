@@ -42,9 +42,10 @@ const Navbar = () => {
           <img onClick={() => token ? null : navigate('/login')} src={assets.profile_icon} className='w-5 cursor-pointer' alt="" />
           {token &&
             <div className='group-hover:block hidden absolute dropdown-menu right-0 pt-4'>
-              <div className='flex flex-col gap-2 w-36 py-3 px-5 bg-slate-100 text-gray-500 rounded'>
+              <div className='flex flex-col gap-2 w-40 py-3 px-5 bg-slate-100 text-gray-500 rounded'>
                 <p onClick={() => navigate('/profile')} className='cursor-pointer hover:text-black'>Thông tin</p>
                 <p onClick={() => navigate('/order')} className='cursor-pointer hover:text-black'>Đơn hàng</p>
+                <p onClick={() => navigate('/tryon-history')} className='cursor-pointer hover:text-black'>Lịch sử thử đồ</p>
                 <p onClick={logout} className='cursor-pointer hover:text-black'>Đăng xuất</p>
               </div>
             </div>}

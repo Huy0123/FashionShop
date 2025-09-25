@@ -100,9 +100,21 @@ const Product = () => {
       const productImageResponse = await fetch(productData.image[0]);
       const productImageBlob = await productImageResponse.blob();
 
+      // Lấy userId từ localStorage
+      const userId = localStorage.getItem('userID');
+      if (!userId) {
+        toast.error('Vui lòng đăng nhập để sử dụng tính năng thử đồ');
+        setIsLoading(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append('people', userImage, 'user-image.jpg');
       formData.append('clothes', productImageBlob, 'product-image.jpg');
+      formData.append('userId', userId);
+      formData.append('productId', productData._id);
+      formData.append('productName', productData.name);
+      formData.append('productPrice', productData.price);
 
       // Call try-on API
       const response = await fetch(`http://localhost:4000/api/product/tryOnClothes`, {
@@ -115,7 +127,7 @@ const Product = () => {
       console.log('Try-on result:', result);
       //Trả dãy json thành hình ảnh lên FE
       if (result.success) {
-        setTryOnResult(result.data);
+        setTryOnResult(result.data.originalUrl);
         toast.success(result.message || 'Try-on thành công!');
       } else {
         toast.error(result.message || 'Không thể thực hiện try-on');

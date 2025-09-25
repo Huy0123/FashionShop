@@ -16,6 +16,7 @@ import SearchBar from './components/SearchBar'
 import ChatWidget from './components/ChatWidget'
 import { ToastContainer, toast } from 'react-toastify';
 import ProfilePage from './pages/Profile'
+import TryOnHistory from './pages/TryOnHistory'
 
 const App = () => {
   return (
@@ -25,6 +26,7 @@ const App = () => {
       <SearchBar />
       <Routes>
         <Route path='/profile' element={<ProfilePage />} />
+        <Route path='/tryon-history' element={<TryOnHistory />} />
         <Route path='/' element={<Home />} />
         <Route path='/collection' element={<Collection />} />
         <Route path='/about' element={<About />} />
@@ -35,7 +37,7 @@ const App = () => {
         <Route path='/place-order' element={<PlaceOrder />} />
         <Route path='/order' element={<Order />} />
         <Route path='/verify-payment' element={<VerifyPayment />} />
-        
+
       </Routes>
       <Footer />
       <ChatWidget />
