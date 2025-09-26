@@ -123,10 +123,10 @@ const PlaceOrder = () => {
         <div className='mt-10'>
           <Title text2={'PHƯƠNG THỨC THANH TOÁN'} />
           <div className='flex gap-3 flex-col lg:flex-row'>
-            <div onClick={() => setMethod('momo')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+            {/* <div onClick={() => setMethod('momo')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
               <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'momo' ? 'bg-gray-400' : ''}`}></p>
               <img className='max-w-[70px] max-h-[100px] mx-4' src={assets.momo_logo} alt="" />
-            </div>
+            </div> */}
             <div onClick={() => setMethod('vnpay')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
               <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'vnpay' ? 'bg-gray-400' : ''}`}></p>
               <img className='max-w-[70px] max-h-[100px] mx-4' src={assets.vnpay_logo} alt="" />
