@@ -2,6 +2,7 @@ import express from 'express';
 import { addProduct, listProducts, removeProduct, singleProduct, tryOnClothes, updateProduct } from '../controllers/productController.js';
 import upload from '../middleware/multer.js';
 import adminAuth from '../middleware/adminAuth.js';
+import authUser from '../middleware/auth.js';
 
 
 const productRouter = express.Router();
@@ -19,7 +20,7 @@ productRouter.post('/single', singleProduct)
 productRouter.post('/tryOnClothes', upload.fields([
     { name: 'people', maxCount: 1 },
     { name: 'clothes', maxCount: 1 }
-]), tryOnClothes)
+]), authUser, tryOnClothes)
 
 productRouter.post('/update', adminAuth, upload.fields([
     { name: 'image1', maxCount: 1 },
