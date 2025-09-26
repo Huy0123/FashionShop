@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 // Lấy danh sách try-on results của user
 const getUserTryOnResults = async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.body.userId;
 
         const results = await TryOnResult.find({ userId })
             .sort({ createdAt: -1 })
@@ -29,7 +29,7 @@ const getUserTryOnResults = async (req, res) => {
 const deleteTryOnResult = async (req, res) => {
     try {
         const { resultId } = req.params;
-        const userId = req.body.requestUserId;
+        const userId = req.body.userId;
 
         console.log('Delete request:', {
             resultId,
