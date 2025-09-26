@@ -9,23 +9,21 @@ const TryOnHistory = () => {
     const [loading, setLoading] = useState(true);
 
     const getToken = () => localStorage.getItem('token');
-    const getUserId = () => localStorage.getItem('userID');
     const getBackendUrl = () => import.meta.env.VITE_BE_URL || 'http://localhost:4000';
 
     const fetchTryOnHistory = async () => {
         try {
             setLoading(true);
-            const userId = getUserId();
             const token = getToken();
             const backendUrl = getBackendUrl();
 
-            if (!userId || !token) {
+            if (!token) {
                 toast.error('Vui lòng đăng nhập lại');
                 navigate('/login');
                 return;
             }
 
-            const response = await fetch(`${backendUrl}/api/tryon/user/${userId}`, {
+            const response = await fetch(`${backendUrl}/api/tryon/user`, {
                 method: 'GET',
                 headers: {
                     token,
@@ -50,11 +48,8 @@ const TryOnHistory = () => {
 
     const deleteTryOnResult = async (resultId) => {
         try {
-            const userId = getUserId();
             const token = getToken();
             const backendUrl = getBackendUrl();
-
-            console.log('Deleting try-on result:', { resultId, userId, token: token ? 'exists' : 'missing' });
 
             const response = await fetch(`${backendUrl}/api/tryon/result/${resultId}`, {
                 method: 'DELETE',
@@ -62,7 +57,6 @@ const TryOnHistory = () => {
                     token,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ requestUserId: userId })
             });
 
             console.log('Delete response status:', response.status);

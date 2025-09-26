@@ -35,6 +35,7 @@ const Product = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [tryOnResult, setTryOnResult] = useState(null)
   const [showZoomedImage, setShowZoomedImage] = useState(false)
+  const [modalImage, setModalImage] = useState('')
 
 
   const fetchProductData = async () => {
@@ -96,22 +97,13 @@ const Product = () => {
         hideProgressBar: false
       });
 
-      // Tải ảnh sản phẩm từ URL và chuyển thành Blob
-      const productImageResponse = await fetch(productData.image[0]);
+      // Tải ảnh sản phẩm từ URL và chuyển thành Blob (sử dụng ảnh được chọn trong modal)
+      const productImageResponse = await fetch(modalImage);
       const productImageBlob = await productImageResponse.blob();
-
-      // Lấy userId từ localStorage
-      const userId = localStorage.getItem('userID');
-      if (!userId) {
-        toast.error('Vui lòng đăng nhập để sử dụng tính năng thử đồ');
-        setIsLoading(false);
-        return;
-      }
 
       const formData = new FormData();
       formData.append('people', userImage, 'user-image.jpg');
       formData.append('clothes', productImageBlob, 'product-image.jpg');
-      formData.append('userId', userId);
       formData.append('productId', productData._id);
       formData.append('productName', productData.name);
       formData.append('productPrice', productData.price);
@@ -119,7 +111,10 @@ const Product = () => {
       // Call try-on API
       const response = await fetch(`http://localhost:4000/api/product/tryOnClothes`, {
         method: 'POST',
-        body: formData
+        body: formData,
+        headers: {
+          token: localStorage.getItem('token')
+        },
       });
 
       const result = await response.json();
@@ -149,6 +144,7 @@ const Product = () => {
     setTryOnResult(null);
     setIsLoading(false);
     setShowZoomedImage(false);
+    setModalImage(''); // Reset modal image
   };
 
   return productData ? (
@@ -194,7 +190,10 @@ const Product = () => {
               THÊM VÀO GIỎ
             </button>
             <button
-              onClick={() => setShowTryOnModal(true)}
+              onClick={() => {
+                setShowTryOnModal(true);
+                setModalImage(productData.image[0]);
+              }}
               className=' text-white px-8 py-3 text-sm bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 rounded-full'>
               THỬ NGAY VỚI AI
             </button>
@@ -331,14 +330,30 @@ const Product = () => {
                 <div>
                   <h3 className='text-lg font-semibold mb-4'>2. Sản phẩm sẽ thử</h3>
                   <div className='border rounded-lg p-4 mb-4'>
-                    <div className='w-full h-48 flex items-center justify-center bg-gray-50 rounded mb-2 overflow-hidden'>
+                    {/* Ảnh chính hiển thị lớn */}
+                    <div className='w-full h-48 flex items-center justify-center bg-gray-50 rounded mb-3 overflow-hidden'>
                       <img
-                        src={productData.image[0]}
+                        src={modalImage}
                         alt={productData.name}
                         className='max-w-full max-h-full object-contain'
                       />
                     </div>
-                    <p className='font-medium'>{productData.name}</p>
+
+                    {/* Danh sách ảnh */}
+                    <div className='flex gap-2 overflow-x-auto pb-2'>
+                      {productData.image.map((item, index) => (
+                        <img
+                          key={index}
+                          src={item}
+                          onClick={() => setModalImage(item)}
+                          alt={`${productData.name} ${index + 1}`}
+                          className={`w-16 h-16 object-cover rounded cursor-pointer flex-shrink-0 border-2 transition-all hover:opacity-80 ${modalImage === item ? 'border-black shadow-md' : 'border-gray-200'
+                            }`}
+                        />
+                      ))}
+                    </div>
+
+                    <p className='font-medium mt-3'>{productData.name}</p>
                     <p className='text-gray-600'>{formatCurrency(productData.price)}</p>
                   </div>
 
