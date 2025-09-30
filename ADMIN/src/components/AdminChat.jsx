@@ -16,11 +16,9 @@ const AdminChat = () => {
     const messagesEndRef = useRef(null);
     const typingTimeoutRef = useRef(null);
 
-    // Auto scroll to bottom
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
-
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
@@ -56,12 +54,10 @@ const AdminChat = () => {
     const sendMessage = async (e) => {
         e.preventDefault();
         if (!newMessage.trim() || !selectedRoom) return;
-
         // Stop typing indicator when sending
         if (socket) {
             socket.emit('admin_typing', { roomId: selectedRoom, isTyping: false });
         }
-
         const messageData = {
             roomId: selectedRoom,
             senderId: 'admin',
@@ -122,7 +118,6 @@ const AdminChat = () => {
         if (!window.confirm('Bạn có chắc muốn xóa đoạn chat này? Hành động này không thể hoàn tác.')) {
             return;
         }
-
         try {
             const response = await axios.delete(`${url}/api/chat/admin/room/${roomId}`, {
                 headers: { token: localStorage.getItem('token') }
@@ -156,7 +151,6 @@ const AdminChat = () => {
     useEffect(() => {
         const newSocket = io(url, { transports: ['websocket'], upgrade: false });
         setSocket(newSocket);
-
         newSocket.on('connect', () => {
             newSocket.emit('admin_login', {
                 name: 'Admin',
@@ -165,12 +159,8 @@ const AdminChat = () => {
                 socketId: newSocket.id
             });
         });
-
-
-
         fetchChatRooms();
         const interval = setInterval(fetchChatRooms, 10000);
-
         return () => {
             clearInterval(interval);
             newSocket.close();
@@ -178,31 +168,26 @@ const AdminChat = () => {
     }, []);
 
 
-    // Separate effect for socket message handling
+    // Lắng nghe tin nhắn mới
     useEffect(() => {
         if (!socket) return;
-
         const handleReceiveMessage = (message) => {
             fetchChatRooms();
-
             if (selectedRoom && message.roomId === selectedRoom) {
                 setMessages(prevMessages => {
                     // Xoá temp message trùng
                     const filtered = prevMessages.filter(
                         msg => !msg.isTemp || !(msg.message === message.message && msg.senderType === message.senderType)
                     );
-
                     // Nếu message đã tồn tại thì bỏ qua
                     const exists = filtered.some(msg => msg._id === message._id);
                     if (exists) return filtered;
-
                     const updated = [...filtered, message];
-                    setTimeout(scrollToBottom, 100); // auto scroll
+                    setTimeout(scrollToBottom, 100);
                     return updated;
                 });
             }
         };
-
         const handleMessageUpdate = (message) => {
             if (selectedRoom && message.roomId === selectedRoom) {
                 setMessages(prevMessages =>
@@ -212,15 +197,12 @@ const AdminChat = () => {
                 );
             }
         };
-
         const handleNewMessageNotification = () => {
             fetchChatRooms();
         };
-
         socket.on('receive_message', handleReceiveMessage);
         socket.on('message_update', handleMessageUpdate);
         socket.on('new_message_notification', handleNewMessageNotification);
-
         return () => {
             socket.off('receive_message', handleReceiveMessage);
             socket.off('message_update', handleMessageUpdate);
@@ -230,7 +212,6 @@ const AdminChat = () => {
 
 
     useEffect(() => {
-        // Nếu chưa có socket hoặc chưa chọn room thì thoát
         if (!socket || !selectedRoom) return;
         // Lấy tin nhắn
         fetchMessages(selectedRoom);
@@ -274,7 +255,7 @@ const AdminChat = () => {
                             <div
                                 onClick={() => {
                                     setSelectedRoom(room._id);
-                                    setIsMobileMenuOpen(false); // Close mobile menu when selecting room
+                                    setIsMobileMenuOpen(false);
                                 }}
                                 className="flex justify-between items-start"
                             >

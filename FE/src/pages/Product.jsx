@@ -411,12 +411,13 @@ const Product = () => {
           className='fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4'
           onClick={() => setShowZoomedImage(false)}
         >
-          <div className='relative max-w-[95vw] max-h-[95vh] flex items-center justify-center'>
+          <div className='relative max-w-[60vw] max-h-[70vh] flex items-center justify-center'>
             <img
               src={tryOnResult}
               alt="Try-on result zoomed"
               className='max-w-full max-h-full object-contain'
               onClick={(e) => e.stopPropagation()}
+              style={{ maxWidth: '400px', maxHeight: '600px' }}
             />
             <button
               onClick={() => setShowZoomedImage(false)}

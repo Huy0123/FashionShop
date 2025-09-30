@@ -16,7 +16,7 @@ const getChatHistory = async (req, res) => {
 const saveMessage = async (req, res) => {
     try {
         const { roomId, senderId, senderName, senderType, message } = req.body;
-        
+
         const newMessage = new chatModel({
             roomId,
             senderId,
@@ -56,23 +56,8 @@ const getChatRooms = async (req, res) => {
             },
             { $sort: { lastMessageTime: -1 } }
         ]);
-        
-        res.json({ success: true, rooms });
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-};
 
-// Đánh dấu tin nhắn đã đọc
-const markAsRead = async (req, res) => {
-    try {
-        const { roomId } = req.params;
-        await chatModel.updateMany(
-            { roomId, isRead: false },
-            { isRead: true }
-        );
-        res.json({ success: true, message: "Messages marked as read" });
+        res.json({ success: true, rooms });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -91,16 +76,5 @@ const deleteChatRoom = async (req, res) => {
     }
 };
 
-// Xóa tin nhắn cụ thể
-const deleteMessage = async (req, res) => {
-    try {
-        const { messageId } = req.params;
-        await chatModel.findByIdAndDelete(messageId);
-        res.json({ success: true, message: "Message deleted successfully" });
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-};
 
-export { getChatHistory, saveMessage, getChatRooms, markAsRead, deleteChatRoom, deleteMessage };
+export { getChatHistory, saveMessage, getChatRooms, deleteChatRoom };

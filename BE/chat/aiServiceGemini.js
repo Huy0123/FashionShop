@@ -85,7 +85,7 @@ async function findProductsForGemini(message) {
          return shuffled.slice(0, count);
       }
 
-      // SET/OUTFIT SEARCH
+      // SET/OUTFIT 
       const isSetQuery = /(set|bộ|combo|outfit|phối|kết hợp|gợi ý.*đồ|cafe|chơi|đi|dự|tiệc)/i.test(message);
       if (isSetQuery || products.length === 0) {
          const allProductTypes = await Product.distinct('productType');
@@ -115,7 +115,7 @@ async function findProductsForGemini(message) {
       }
 
 
-      // FALLBACK
+      // dự phòng
       if (products.length === 0) {
          const recentProducts = await Product.find({}, productProjection)
             .sort({ date: -1 })
@@ -149,14 +149,11 @@ export async function generateGeminiAI(message, roomId = null) {
             return `${index + 1}. [${p.name}](/product/${p._id}) – Giá: ${price}`;
          }).join('\n')
          : 'Không có sản phẩm cụ thể.';
-
-
-
       if (roomId && contextProducts.length > 0) {
          productContextCache[roomId] = contextProducts;
       }
 
-      const model = gemini.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
       const prompt = `Bạn là tư vấn viên Chevai Fashion - cửa hàng thời trang. Giúp khách chọn quần áo phù hợp.
 
 **KHÁCH YÊU CẦU**: "${message}"
@@ -167,12 +164,14 @@ ${productContext}
 - Thân thiện, nhiệt tình, chuyên nghiệp
 - Dùng ngôn ngữ tự nhiên, không gượng gạo
 - Đa dạng mẫu câu, không lặp lại
-- Xưng anh/chị phù hợp còn nếu không biết thì hãy xưng hô là "bạn"
+- Hãy xưng hô với khách là "bạn"
 - Nếu khách hỏi sản phẩm có size gì thì cứ trả lời có đủ size S, M, L, XL
 - Tự động thích nghi và trả lời nếu nó nằm ngoài việc tư vấn quần áo
 - Nếu khách hỏi về chính sách đổi trả thì hãy trả lời rằng "Chevai Fashion hỗ trợ đổi trả trong vòng 7 ngày nếu sản phẩm còn nguyên tem mác."
 - Nếu khách hỏi về thời gian giao hàng thì hãy trả lời rằng "Thời gian giao hàng dự kiến từ 3-5 ngày làm việc."
 - không được nói đưa ảnh hay cho xem ảnh
+- Không được đưa [Sản phẩm không có sẵn] ra đoạn chat với khách
+- Không đưa link sản phẩm trong đoạn chat với admin
 **TUYỆT ĐỐI TUÂN THỦ**:
 1. CHỈ được giới thiệu sản phẩm CÓ TRONG DANH SÁCH TRÊN
 2. KHÔNG được tự tạo tên sản phẩm hay ID bất kỳ  
@@ -189,7 +188,7 @@ Trả lời (chỉ dùng sản phẩm có trong danh sách):`;
       const result = await model.generateContent(prompt);
       let response = result.response.text();
 
-      // link hợp lệ
+      // lọc và sửa link hợp lệ
       const linkMatches = response.match(/\[.*?\]\(\/product\/([^)]+)\)/g);
       if (linkMatches && contextProducts.length > 0) {
          const validIds = contextProducts.map(p => p._id.toString());

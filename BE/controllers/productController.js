@@ -61,8 +61,8 @@ const addProduct = async (req, res) => {
             })
         )
 
-        console.log(name, description, price, productType, sizes, bestseller)
-        console.log(imagesUrl)
+        // console.log(name, description, price, productType, sizes, bestseller)
+        // console.log(imagesUrl)
 
         const productData = {
             name,
@@ -74,7 +74,7 @@ const addProduct = async (req, res) => {
             image: imagesUrl,
             date: Date.now()
         }
-        console.log(productData);
+        // console.log(productData);
         const product = new productModel(productData);
         await product.save();
 
@@ -140,11 +140,11 @@ const tryOnClothes = async (req, res) => {
         const result = await app.predict("/tryon", [
             { background: personBuffer, layers: [], composite: null },
             clothBuffer,
-            "Hello!!",
+            "shirt",
             true,
-            true,
-            20,
-            1
+            false,
+            30,
+            42
         ]);
 
         // Upload kết quả lên Cloudinary và lưu vào DB

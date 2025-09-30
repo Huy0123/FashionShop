@@ -10,7 +10,6 @@ const ShopContextProvider = (props) => {
 
     const currency = 'VND';
     const delivery_fee = 50000;
-    // Free shipping for orders with subtotal >= 2,000,000 VND
     const free_shipping_threshold = 2000000;
     const backendUrl = import.meta.env.VITE_BE_URL
     const [Search, setSearch] = useState('');
@@ -21,7 +20,7 @@ const ShopContextProvider = (props) => {
     const [userData, setUserData] = useState(null)
     const navigate = useNavigate();
 
-    // Hàm định dạng tiền tệ Việt Nam
+
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
@@ -34,7 +33,7 @@ const ShopContextProvider = (props) => {
     const AddToCart = async (itemId, size) => {
 
         if (!size) {
-            toast.error('Please select Size!!');
+            toast.error('Hãy chọn Size!!');
             return;
         }
 
@@ -168,7 +167,7 @@ const ShopContextProvider = (props) => {
     }, [token])
 
     const value = {
-    products, currency, delivery_fee, free_shipping_threshold, getDeliveryFee,
+        products, currency, delivery_fee, free_shipping_threshold, getDeliveryFee,
         Search, setSearch, ShowSearch, setShowSearch,
         Cart, AddToCart, setCart,
         getCartCount, upQuantity,

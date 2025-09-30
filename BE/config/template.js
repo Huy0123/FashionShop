@@ -34,13 +34,13 @@ const orderSuccessTemplate = (orderData) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Xác nhận đơn hàng - FashionShop</title>
+        <title>Xác nhận đơn hàng - Chevai</title>
     </head>
     <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
             <!-- Header -->
             <div style="background-color: #2c3e50; padding: 30px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">FashionShop</h1>
+                <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Chevai</h1>
                 <p style="color: #ecf0f1; margin: 10px 0 0 0; font-size: 16px;">Cảm ơn bạn đã mua sắm cùng chúng tôi!</p>
             </div>
 
@@ -99,7 +99,8 @@ const orderSuccessTemplate = (orderData) => {
 
                 <!-- Total -->
                 <div style="text-align: right; padding: 20px; background-color: #f8f9fa; border-radius: 5px;">
-                    <h3 style="color: #2c3e50; margin: 0;">Tổng cộng: <span style="color: #e74c3c;">${totalAmount.toLocaleString('vi-VN')}₫</span></h3>
+                    <h3 style="color: #2c3e50; margin: 0;">Tổng cộng: <span style="color: #e74c3c;">
+                    ${totalAmount.toLocaleString('vi-VN')}₫</span></h3>
                 </div>
 
                 <!-- Next Steps -->
@@ -115,10 +116,10 @@ const orderSuccessTemplate = (orderData) => {
 
             <!-- Footer -->
             <div style="background-color: #2c3e50; padding: 20px; text-align: center;">
-                <p style="color: #bdc3c7; margin: 0 0 10px 0;">Cảm ơn bạn đã tin tưởng FashionShop!</p>
+                <p style="color: #bdc3c7; margin: 0 0 10px 0;">Cảm ơn bạn đã tin tưởng Chevai!</p>
                 <p style="color: #95a5a6; margin: 0; font-size: 12px;">
                     Email này được gửi tự động, vui lòng không trả lời.<br>
-                    © 2025 FashionShop. All rights reserved.
+                    © 2025 Chevai. All rights reserved.
                 </p>
             </div>
         </div>

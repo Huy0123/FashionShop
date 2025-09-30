@@ -18,7 +18,36 @@ const placeOrder = async (req, res) => {
         }
         const newOrder = new orderModel(orderData);
         await newOrder.save()
-        await userModel.findByIdAndUpdate(userId, { cartData: {} })
+        const user = await userModel.findByIdAndUpdate(userId, { cartData: {} })
+
+
+        try {
+            const emailHtml = orderSuccessTemplate({
+                orderId: newOrder._id,
+                customerName: user.name,
+                customerEmail: user.email,
+                items: newOrder.items,
+                totalAmount: newOrder.amount,
+                shippingAddress: newOrder.address,
+                paymentMethod: newOrder.paymentMethod,
+                orderDate: newOrder.date
+            });
+
+            const emailResult = await sendEmail(
+                user.email,
+                'Xác nhận đơn hàng của bạn',
+                emailHtml
+            );
+
+            if (emailResult.success) {
+                console.log('Order confirmation email sent to:', user.email);
+            } else {
+                console.log('Failed to send order confirmation email:', emailResult.error);
+            }
+        } catch (emailError) {
+            console.error('Email sending error:', emailError);
+        }
+
         res.json({ success: true, message: "Order success" })
 
     } catch (error) {
@@ -35,7 +64,6 @@ const placeOrderMomo = async (req, res) => {
 const placeOrderVnpay = async (req, res) => {
     try {
         const { userId, items, amount, address } = req.body;
-
         // Tạo đơn hàng trong database với trạng thái chờ thanh toán
         const orderData = {
             userId,
@@ -123,20 +151,15 @@ const updateStatus = async (req, res) => {
 const verifyVNPayPayment = async (req, res) => {
     try {
         let vnp_Params = req.query;
-        console.log('VNPay callback params:', vnp_Params);
-
         // Xác thực chữ ký từ VNPay
         const isValid = verifyVNPayResponse(vnp_Params);
-        console.log('Signature validation:', isValid);
 
         if (isValid) {
             const orderId = vnp_Params['vnp_TxnRef'];
             const responseCode = vnp_Params['vnp_ResponseCode'];
-            console.log('OrderId:', orderId, 'ResponseCode:', responseCode);
 
             // Tìm đơn hàng trong database
             const order = await orderModel.findById(orderId);
-            console.log('Found order:', order ? 'Yes' : 'No');
 
             if (!order) {
                 return res.json({ success: false, message: 'Order not found' });
@@ -155,7 +178,6 @@ const verifyVNPayPayment = async (req, res) => {
                     { cartData: {} },
                     { new: true }
                 );
-                console.log('Cleared cart for user:', order.userId);
                 try {
                     const emailHtml = orderSuccessTemplate({
                         orderId: orderId,
@@ -173,7 +195,6 @@ const verifyVNPayPayment = async (req, res) => {
                         'Xác nhận đơn hàng của bạn',
                         emailHtml
                     );
-
                     if (emailResult.success) {
                         console.log('Order confirmation email sent to:', user.email);
                     } else {

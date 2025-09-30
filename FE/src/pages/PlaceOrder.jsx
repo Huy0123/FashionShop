@@ -48,7 +48,7 @@ const PlaceOrder = () => {
       const totalProductPrice = CartAmount();
       const discount = totalProductPrice >= 10000000 ? parseFloat((totalProductPrice * 0.2).toFixed(2)) : 0;
       const finalProductPrice = totalProductPrice - discount;
-  const finalDeliveryFee = getDeliveryFee(totalProductPrice);
+      const finalDeliveryFee = getDeliveryFee(totalProductPrice);
       const totalAmount = finalProductPrice + finalDeliveryFee;
       
       let orderData = {
