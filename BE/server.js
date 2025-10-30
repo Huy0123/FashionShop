@@ -17,7 +17,7 @@ const app = express()
 const server = createServer(app)
 const io = new Server(server, {
    cors: {
-      origin: [process.env.CORS],
+      origin: [process.env.CORS, "http://localhost:3000", "http://localhost:5173"],
       methods: ["GET", "POST", ]
    }
 })
@@ -25,7 +25,7 @@ const port = process.env.PORT || 4000
 connectDB()
 connectCloudinary()
 //middlewares
-app.use(cors(process.env.CORS))
+app.use(cors())
 app.use(express.json())
 //api endpoints
 app.use('/api/user', userRouter)
