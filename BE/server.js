@@ -21,7 +21,6 @@ const io = new Server(server, {
       methods: ["GET", "POST", ]
    }
 })
-const port = process.env.PORT || 4000
 connectDB()
 connectCloudinary()
 //middlewares
@@ -40,4 +39,3 @@ app.get('/', (req, res) => {
 })
 // Initialize chat handlers with Socket.IO
 initializeChatHandlers(io);
-server.listen(port, () => console.log('started server on port: ' + port))
