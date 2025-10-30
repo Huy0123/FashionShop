@@ -17,10 +17,11 @@ const app = express()
 const server = createServer(app)
 const io = new Server(server, {
    cors: {
-      origin: [process.env.CORS, "http://localhost:3000", "http://localhost:5173"],
+      origin: [process.env.URL_FE, "http://localhost:3000", "http://localhost:5173"],
       methods: ["GET", "POST", ]
    }
 })
+const port = process.env.PORT || 4000;
 connectDB()
 connectCloudinary()
 //middlewares
@@ -39,3 +40,6 @@ app.get('/', (req, res) => {
 })
 // Initialize chat handlers with Socket.IO
 initializeChatHandlers(io);
+app.listen(port, () => {
+  console.log(`Example app listening on port ${port}`)
+})
