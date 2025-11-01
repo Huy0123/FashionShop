@@ -40,6 +40,6 @@ app.get('/', (req, res) => {
 })
 // Initialize chat handlers with Socket.IO
 initializeChatHandlers(io);
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
 })
